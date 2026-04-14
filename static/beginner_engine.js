@@ -289,18 +289,49 @@
     { id: 'c-6', lang: 'c', mode: 'classic', diff: 'normal', lvl: 6, label: 'BOSS', sub: 'Full C', x: 70, y: 66, boss: true },
   ];
 
+  function setRMFilter(type, val) {
+    if (window.syncGFilters) window.syncGFilters(type, val);
+  }
+  window.BE_setRMFilter = setRMFilter;
+
   function openRoadmap() {
     const modal = document.getElementById('be-roadmap-modal');
     if (!modal) return;
+
+    // Ensure buttons match current global state
+    if (window.G_Filters) {
+      for (const [type, val] of Object.entries(window.G_Filters)) {
+        document.querySelectorAll(`.be-rm-filter-btn[data-type="${type}"]`).forEach(b => {
+          b.classList.toggle('active', b.dataset.val === val);
+        });
+      }
+    }
+
     renderRoadmap();
     modal.classList.add('open');
   }
   window.BE_openRoadmap = openRoadmap;
+  window.BE_renderRM = renderRoadmap;
 
-  function renderRoadmap() {
+  async function renderRoadmap() {
     const container = document.getElementById('be-roadmap-svg');
     if (!container) return;
-    const completed = window.GS?.completedLevels || {};
+
+    // Always show all 3 languages — fetch real server progress
+    let langProgress = {};
+    let highScores = {};
+    try {
+      const profileData = await window.apiFetch('/api/my_profile');
+      if (profileData && profileData.lang_progress) langProgress = profileData.lang_progress;
+      const mode = window.G_Filters?.mode || 'classic';
+      const diff = window.G_Filters?.diff || 'normal';
+      const scoreUrl = `/api/my_scores?lang=${window.G_Filters?.lang || 'python'}&mode=${mode}&difficulty=${diff}`;
+      const scoreData = await window.apiFetch(scoreUrl);
+      if (scoreData && scoreData.scores) highScores = scoreData.scores;
+    } catch (e) { }
+
+    const mode = window.G_Filters?.mode || 'classic';
+    const diff = window.G_Filters?.diff || 'normal';
 
     const LANGS = [
       {
@@ -339,8 +370,8 @@
     container.style.cssText = 'display:flex;flex-direction:column;gap:28px;padding:8px 0;';
 
     LANGS.forEach(lang => {
-      const key = `${lang.key}_classic_normal`;
-      const completedArr = completed[key] || [];
+      // Get completed level count from server lang_progress
+      const lvlCompleted = langProgress[lang.key]?.[mode]?.[diff]?.levels_completed || 0;
 
       // Language row
       const row = document.createElement('div');
@@ -357,14 +388,14 @@
       track.style.cssText = 'display:grid;grid-template-columns:repeat(6,1fr);gap:8px;';
 
       lang.nodes.forEach(n => {
-        const done = completedArr.includes(n.lvl);
-        const isNext = !done && (completedArr.includes(n.lvl - 1) || n.lvl === 1);
-        const locked = !done && !isNext;
+        const done   = n.lvl <= lvlCompleted;
+        const isNext = !done && n.lvl === lvlCompleted + 1;
+        const scoreStr = (done && highScores[n.lvl] > 0) ? `HS: ${highScores[n.lvl]}` : '';
 
         const node = document.createElement('div');
         const borderCol = done ? lang.col : isNext ? '#ffff00' : 'rgba(255,255,255,0.1)';
-        const bgCol = done ? `${lang.col}18` : isNext ? 'rgba(255,255,80,0.07)' : 'rgba(0,0,0,0.3)';
-        const textCol = done ? lang.col : isNext ? '#ffff00' : 'rgba(255,255,255,0.2)';
+        const bgCol     = done ? `${lang.col}18` : isNext ? 'rgba(255,255,80,0.07)' : 'rgba(0,0,0,0.3)';
+        const textCol   = done ? lang.col : isNext ? '#ffff00' : 'rgba(255,255,255,0.2)';
         node.style.cssText = `background:${bgCol};border:1px solid ${borderCol};border-radius:6px;padding:10px 6px;text-align:center;cursor:${(done || isNext) ? 'pointer' : 'default'};transition:all 0.2s;position:relative;overflow:hidden;`;
 
         if (done || isNext) {
@@ -373,8 +404,8 @@
           node.addEventListener('click', () => {
             document.getElementById('be-roadmap-modal').classList.remove('open');
             setTimeout(() => {
-              window.GS.mode = 'classic';
-              window.GS.difficulty = 'normal';
+              window.GS.mode = mode;
+              window.GS.difficulty = diff;
               window.apiStartGame(lang.key, n.lvl);
             }, 300);
           });
@@ -385,7 +416,8 @@
         node.innerHTML = `
           <div style="font-family:'Orbitron',monospace;font-size:${n.boss ? '14' : '16'}px;font-weight:700;color:${textCol};${glowStyle}margin-bottom:5px;">${label}</div>
           <div style="font-size:8px;color:${textCol};opacity:0.85;letter-spacing:1px;font-family:'Share Tech Mono',monospace;">${n.sub}</div>
-          ${done ? `<div style="position:absolute;top:3px;right:4px;font-size:7px;color:${lang.col};opacity:0.6;">DONE</div>` : ''}
+          ${scoreStr ? `<div style="font-family:'Orbitron',monospace;font-size:7.5px;color:#f0db4f;margin-top:6px;letter-spacing:1px;text-shadow:0 0 4px rgba(240,219,79,0.5);">${scoreStr}</div>` : ''}
+          ${done && !scoreStr ? `<div style="position:absolute;top:3px;right:4px;font-size:7px;color:${lang.col};opacity:0.6;">DONE</div>` : ''}
           ${isNext && !done ? `<div style="position:absolute;top:3px;right:4px;font-size:7px;color:#ffff00;opacity:0.7;">NEXT</div>` : ''}
         `;
         track.appendChild(node);
@@ -417,11 +449,16 @@
   // ═══════════════════════════════════════════════════════════════════════════
   async function fetchProgressReport() {
     try {
-      const data = await window.apiFetch('/my_rank');
-      if (!data || !data.global_rank) return;
-      BE.progressData.rank = data.global_rank;
-      BE.progressData.badges = data.lang_badges;
-      BE.progressData.score = data.total_score || 0;
+      const data = await window.apiFetch('/api/my_profile');
+      if (!data || data.status !== 'success') return;
+      BE.progressData = {
+        rank:      data.global_rank  || {},
+        badges:    data.lang_badges  || {},
+        levels:    data.total_levels || 0,
+        score:     data.total_score  || 0,
+        globalPos: data.global_pos   || 0,
+        langProgress: data.lang_progress || {}
+      };
       renderProgressReport();
     } catch (e) { /* silent */ }
   }
@@ -430,44 +467,54 @@
     const panel = document.getElementById('be-progress-panel');
     if (!panel) return;
     const d = BE.progressData;
-    const completed = window.GS?.completedLevels || {};
+    const lp = d.langProgress || {};
 
-    // Count unique keywords destroyed (from NEXUS mistake tracker proxy)
-    const wordsTyped = window.GS?._wordsTyped || 0;
+    // Read current profile pill state (sync with main profile filters)
+    const mode = window._profileMode || 'classic';
+    const diff = window._profileDiff || 'normal';
+    const selLang = window._profileLang || 'global'; // 'global','python','java','c'
 
-    // Count levels per language
+    // Levels per language for selected mode+diff
+    const langKeys = ['python', 'java', 'c'];
     const langLevels = {};
-    ['python', 'java', 'c'].forEach(lang => {
-      let max = 0;
-      ['classic_normal', 'classic_pro', 'builder_normal', 'builder_pro'].forEach(k => {
-        const arr = completed[`${lang}_${k.split('_')[0]}_${k.split('_')[1]}`] || [];
-        max = Math.max(max, arr.length);
-      });
-      langLevels[lang] = max;
+    langKeys.forEach(lang => {
+      langLevels[lang] = lp[lang]?.[mode]?.[diff]?.levels_completed || 0;
     });
 
-    const totalLevels = Object.values(langLevels).reduce((a, b) => a + b, 0);
-    const strongestLang = Object.entries(langLevels).sort((a, b) => b[1] - a[1])[0];
+    // If a specific language is selected, highlight totals for that lang only
+    const displayLangs = selLang === 'global' ? langKeys : [selLang];
+    const totalLevels = displayLangs.reduce((a, l) => a + (langLevels[l] || 0), 0);
+    const totalScore  = selLang === 'global'
+      ? (d.score || 0)
+      : (lp[selLang]?.[mode]?.[diff]?.best_score || 0);
+
+    const strongestLang = langKeys
+      .map(l => [l, langLevels[l]])
+      .sort((a, b) => b[1] - a[1])[0];
+
+    const modeLabel = mode.charAt(0).toUpperCase() + mode.slice(1) + ' / ' + diff.charAt(0).toUpperCase() + diff.slice(1);
 
     panel.innerHTML = `
-      <div class="be-pr-header">◈ YOUR PROGRESS REPORT</div>
+      <div class="be-pr-header">◈ YOUR PROGRESS REPORT <span style="font-size:8px;color:rgba(0,212,255,0.5);margin-left:6px;">${modeLabel}</span></div>
       <div class="be-pr-grid">
-        <div class="be-pr-stat"><div class="be-pr-val" style="color:#00d4ff">${d.score || 0}</div><div class="be-pr-lbl">TOTAL POINTS</div></div>
+        <div class="be-pr-stat"><div class="be-pr-val" style="color:#00d4ff">#${d.globalPos || '—'}</div><div class="be-pr-lbl">GLOBAL RANK</div></div>
         <div class="be-pr-stat"><div class="be-pr-val" style="color:#39ff8f">${totalLevels}</div><div class="be-pr-lbl">LEVELS CLEARED</div></div>
-        <div class="be-pr-stat"><div class="be-pr-val" style="color:#ffff00">${wordsTyped}</div><div class="be-pr-lbl">KEYWORDS HIT (session)</div></div>
-        <div class="be-pr-stat"><div class="be-pr-val" style="color:#b57aff">${strongestLang ? strongestLang[0].toUpperCase() : '—'}</div><div class="be-pr-lbl">STRONGEST LANGUAGE</div></div>
+        <div class="be-pr-stat"><div class="be-pr-val" style="color:#ffff00">${totalScore}</div><div class="be-pr-lbl">BEST SCORE</div></div>
+        <div class="be-pr-stat"><div class="be-pr-val" style="color:#b57aff">${strongestLang && strongestLang[1] > 0 ? strongestLang[0].toUpperCase() : '—'}</div><div class="be-pr-lbl">STRONGEST LANG</div></div>
       </div>
       <div class="be-pr-bars">
-        ${['python', 'java', 'c'].map(lang => {
-      const pct = Math.min(100, Math.round((langLevels[lang] / 6) * 100));
-      const col = lang === 'python' ? '#39ff8f' : lang === 'java' ? '#00d4ff' : '#ff6b35';
-      const icon = lang === 'python' ? '🐍' : lang === 'java' ? '☕' : '⚙';
-      return `<div class="be-pr-bar-row">
+        ${langKeys.map(lang => {
+          const pct = Math.min(100, Math.round((langLevels[lang] / 6) * 100));
+          const col = lang === 'python' ? '#39ff8f' : lang === 'java' ? '#00d4ff' : '#ff6b35';
+          const icon = lang === 'python' ? '🐍' : lang === 'java' ? '☕' : '⚙';
+          const isSel = selLang !== 'global' && selLang === lang;
+          const opacity = (selLang === 'global' || isSel) ? '1' : '0.3';
+          return `<div class="be-pr-bar-row" style="opacity:${opacity}">
             <span class="be-pr-bar-lbl">${icon} ${lang.toUpperCase()}</span>
-            <div class="be-pr-bar-track"><div class="be-pr-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+            <div class="be-pr-bar-track"><div class="be-pr-bar-fill" style="width:${pct}%;background:${col}${isSel ? '' : ''}"></div></div>
             <span class="be-pr-bar-pct" style="color:${col}">${langLevels[lang]}/6</span>
           </div>`;
-    }).join('')}
+        }).join('')}
       </div>
       <div class="be-pr-rank" style="border-color:${d.rank?.color || '#4a6080'}">
         <span style="font-size:20px">${d.rank?.icon || '⬡'}</span>
@@ -478,6 +525,9 @@
       </div>
     `;
   }
+  // Expose so game.js can call after pill changes
+  window.BE_refreshProgressReport = renderProgressReport;
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   //  #11 — GUIDED FIRST MISSION ONBOARDING TUTORIAL
@@ -1130,6 +1180,13 @@ int main() {
 #be-roadmap-svg{width:100%;overflow:visible;}
 .be-roadmap-close{position:absolute;top:20px;right:25px;font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:3px;padding:8px 20px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;cursor:pointer;border-radius:2px;transition:all 0.2s;}
 .be-roadmap-close:hover{background:rgba(0,212,255,0.15);}
+.be-rm-filters{display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap;border-bottom:1px solid rgba(0,212,255,0.1);padding-bottom:15px;}
+.be-rm-filter-group{display:flex;flex-direction:column;gap:6px;}
+.be-rm-filter-lbl{font-size:8px;color:rgba(0,212,255,0.5);letter-spacing:2px;}
+.be-rm-btn-row{display:flex;gap:6px;}
+.be-rm-filter-btn{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 12px;background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);cursor:pointer;border-radius:3px;transition:all 0.2s;}
+.be-rm-filter-btn:hover{background:rgba(255,255,255,0.05);color:#fff;}
+.be-rm-filter-btn.active{border-color:#00d4ff;color:#00d4ff;background:rgba(0,212,255,0.1);}
 
 /* ── #7 MISTAKE CARD ──────────────────────────────────────────────── */
 #be-mistake-card{position:fixed;bottom:160px;left:50%;transform:translateX(-50%) translateY(20px);z-index:1010;width:340px;background:rgba(2,3,14,0.97);border:1px solid rgba(255,96,96,0.5);border-radius:3px;padding:14px 18px;font-family:'Share Tech Mono',monospace;opacity:0;pointer-events:none;transition:all 0.3s ease;}
@@ -1238,6 +1295,33 @@ int main() {
       <button class="be-roadmap-close" onclick="document.getElementById('be-roadmap-modal').classList.remove('open')">✕ CLOSE MAP</button>
       <div class="be-roadmap-hd">🗺 LEARNING ROADMAP</div>
       <div class="be-roadmap-sub">CLICK ANY UNLOCKED NODE TO JUMP TO THAT LEVEL</div>
+      
+      <div class="be-rm-filters">
+        <div class="be-rm-filter-group">
+           <span class="be-rm-filter-lbl">MODE</span>
+           <div class="be-rm-btn-row">
+             <button class="be-rm-filter-btn active" data-type="mode" data-val="classic" onclick="window.BE_setRMFilter('mode','classic')">CLASSIC</button>
+             <button class="be-rm-filter-btn" data-type="mode" data-val="builder" onclick="window.BE_setRMFilter('mode','builder')">BUILDER</button>
+           </div>
+        </div>
+        <div class="be-rm-filter-group">
+           <span class="be-rm-filter-lbl">DIFFICULTY</span>
+           <div class="be-rm-btn-row">
+             <button class="be-rm-filter-btn active" data-type="diff" data-val="normal" onclick="window.BE_setRMFilter('diff','normal')">NORMAL</button>
+             <button class="be-rm-filter-btn" data-type="diff" data-val="pro" onclick="window.BE_setRMFilter('diff','pro')">PRO</button>
+           </div>
+        </div>
+        <div class="be-rm-filter-group">
+           <span class="be-rm-filter-lbl">LANGUAGE</span>
+           <div class="be-rm-btn-row">
+             <button class="be-rm-filter-btn active" data-type="lang" data-val="all" onclick="window.BE_setRMFilter('lang','all')">ALL</button>
+             <button class="be-rm-filter-btn" data-type="lang" data-val="python" onclick="window.BE_setRMFilter('lang','python')">PYTHON</button>
+             <button class="be-rm-filter-btn" data-type="lang" data-val="java" onclick="window.BE_setRMFilter('lang','java')">JAVA</button>
+             <button class="be-rm-filter-btn" data-type="lang" data-val="c" onclick="window.BE_setRMFilter('lang','c')">C-LANG</button>
+           </div>
+        </div>
+      </div>
+      
       <div id="be-roadmap-svg"></div>
     </div>`;
     document.body.appendChild(rm);

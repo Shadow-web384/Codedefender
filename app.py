@@ -58,66 +58,29 @@ def get_db_lang(lang, mode, difficulty):
     d_prefix = difficulty[:1].lower()
     return f"{l_prefix}_{m_prefix}_{d_prefix}"
 
-def compute_ranks(progress_rows):
-    """
-    progress_rows: list of dicts with keys: language(db_lang), current_task
-    Returns: { lang_badges: {python:.., java:.., c:..}, global_rank: {...} }
-    """
-    langs = ['python', 'java', 'c']
-    modes = ['classic', 'builder']
-    diffs = ['normal', 'pro']
+def ensure_stat_columns():
+    """Ensure persistence columns exist in users table."""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cols = [
+            ("total_words_typed", "INT DEFAULT 0"),
+            ("total_keys_total", "INT DEFAULT 0"),
+            ("total_keys_hit", "INT DEFAULT 0"),
+            ("total_play_time_ms", "BIGINT DEFAULT 0")
+        ]
+        for col_name, col_def in cols:
+            try:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}")
+                conn.commit()
+            except:
+                pass # Already exists
+        conn.close()
+    except:
+        pass
 
-    # Build a lookup: (lang, mode, diff) -> max_level_completed
-    # current_task in progress = next level to play, so completed = current_task - 1
-    progress_map = {}
-    for row in progress_rows:
-        progress_map[row['language']] = max(0, row['current_task'] - 1)
-
-    # Compute per-language stats
-    lang_stats = {}  # lang -> {max_normal, max_pro, has_pro_complete}
-    for lang in langs:
-        max_normal = 0
-        max_pro = 0
-        for mode in modes:
-            for diff in diffs:
-                db_lang = get_db_lang(lang, mode, diff)
-                lvls = progress_map.get(db_lang, 0)
-                if diff == 'pro':
-                    max_pro = max(max_pro, lvls)
-                else:
-                    max_normal = max(max_normal, lvls)
-        lang_stats[lang] = {'max_normal': max_normal, 'max_pro': max_pro}
-
-    # Assign language badge
-    def lang_badge(stats):
-        mn, mp = stats['max_normal'], stats['max_pro']
-        if mp >= 6:
-            return {'name': 'Elite',    'icon': '⚡', 'color': '#00d4ff', 'level': 5}
-        if mp >= 1:
-            return {'name': 'Veteran',  'icon': '🔴', 'color': '#ff4d6d', 'level': 4}
-        if mn >= 6:
-            return {'name': 'Defender', 'icon': '🟡', 'color': '#ffd60a', 'level': 3}
-        if mn >= 3:
-            return {'name': 'Cadet',    'icon': '🟢', 'color': '#39ff8f', 'level': 2}
-        if mn >= 1:
-            return {'name': 'Initiate', 'icon': '🔵', 'color': '#4a8fff', 'level': 1}
-        return      {'name': 'Recruit', 'icon': '⬡',  'color': '#4a6080', 'level': 0}
-
-    lang_badges = {lang: lang_badge(lang_stats[lang]) for lang in langs}
-    badge_levels = [lang_badges[l]['level'] for l in langs]
-
-    if all(int(b) >= 4 for b in badge_levels):
-        g = {'name': 'Legendary', 'icon': '💎', 'color': '#ffffff',  'tier': 5}
-    elif all(int(b) >= 3 for b in badge_levels):
-        g = {'name': 'Elite',     'icon': '⚡', 'color': '#00d4ff',  'tier': 4}
-    elif any(int(b) >= 3 for b in badge_levels):
-        g = {'name': 'Defender',  'icon': '🟡', 'color': '#ffd60a',  'tier': 3}
-    elif any(int(b) >= 1 for b in badge_levels):
-        g = {'name': 'Cadet',     'icon': '🟢', 'color': '#39ff8f',  'tier': 2}
-    else:
-        g = {'name': 'Recruit',   'icon': '🔵', 'color': '#4a8fff',  'tier': 1}
-
-    return {'lang_badges': lang_badges, 'global_rank': g}
+# Run migration on start
+ensure_stat_columns()
 
 # --- CLASSIC MODE (Keywords) ---
 CLASSIC_DATA = {   'c': [   {   'id': 1,
@@ -739,6 +702,9 @@ def login():
             progress_rows = cursor.fetchall()
             ranks = compute_ranks(progress_rows)
             
+            # 3. Total Levels
+            total_levels = sum(p['current_task'] - 1 for p in progress_rows)
+            
             conn.close() # Close connection after all operations are done
             return jsonify({
                 "status": "success",
@@ -747,6 +713,7 @@ def login():
                 "occupation": user.get('occupation', 'Defender'),
                 "email": user.get('email', ''),
                 "total_score": int(total_score),
+                "total_levels": total_levels,
                 "global_rank": ranks['global_rank'],
                 "lang_badges": ranks['lang_badges'],
                 "is_admin": False
@@ -1093,6 +1060,24 @@ def complete_level():
                 (user_id, db_lang, level_id + 1)
             )
         conn.commit()
+
+        # ── NEW: Record Session Stats ──
+        words = int(data.get('words_typed', 0))
+        keys_total = int(data.get('keys_total', 0))
+        keys_hit = int(data.get('keys_hit', 0))
+        duration_ms = int(data.get('duration_ms', 0))
+
+        if words > 0 or keys_total > 0 or duration_ms > 0:
+            cursor.execute(
+                "UPDATE users SET total_words_typed = total_words_typed + %s, "
+                "total_keys_total = total_keys_total + %s, "
+                "total_keys_hit = total_keys_hit + %s, "
+                "total_play_time_ms = total_play_time_ms + %s "
+                "WHERE id = %s",
+                (words, keys_total, keys_hit, duration_ms, user_id)
+            )
+            conn.commit()
+
         # Return updated ranks
         cursor2 = conn.cursor(dictionary=True)
         cursor2.execute("SELECT language, current_task FROM progress WHERE user_id=%s", (user_id,))
@@ -1104,9 +1089,40 @@ def complete_level():
         return jsonify({"status": "error", "message": str(e)})
 
 
+@app.route('/api/flush_words', methods=['POST'])
+def flush_words():
+    """Persists session word/key stats to DB without advancing level progress (used on abort/breach)."""
+    if 'user_id' not in session:
+        return jsonify({"status": "ok"})
+    user_id = session['user_id']
+    if user_id == 0:
+        return jsonify({"status": "ok"})
+    try:
+        data = request.json or {}
+        words = max(0, int(data.get('words_typed', 0)))
+        keys_total = max(0, int(data.get('keys_total', 0)))
+        keys_hit = max(0, int(data.get('keys_hit', 0)))
+        if words == 0 and keys_total == 0:
+            return jsonify({"status": "ok"})
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE users SET total_words_typed = total_words_typed + %s, "
+            "total_keys_total = total_keys_total + %s, "
+            "total_keys_hit = total_keys_hit + %s "
+            "WHERE id = %s",
+            (words, keys_total, keys_hit, user_id)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "ok"})
+    except Exception:
+        return jsonify({"status": "ok"})
+
+
 @app.route('/api/update_score', methods=['POST'])
 def update_score():
-    """Updates user score for a specific language/mode/diff."""
+    """Updates user high score for a specific level."""
     if 'user_id' not in session:
         return jsonify({"error": "Auth Error"}), 401
     data = request.json
@@ -1114,51 +1130,58 @@ def update_score():
     language = data.get('language', 'python')
     mode = data.get('mode', 'classic')
     difficulty = data.get('difficulty', 'normal')
+    level_id = int(data.get('level_id', 1))
     db_lang = get_db_lang(language, mode, difficulty)
+    level_key = f"{db_lang}_{level_id}"
     user_id = session['user_id']
-    # ── DB: Update Score (Bypass for Admin ID 0) ──────────────────────────
+    
     if user_id == 0:
-        return jsonify({"status": "success", "total_score": points})
+        return jsonify({"status": "success", "score": points})
     try:
         conn = get_db(); cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT score FROM scores WHERE user_id=%s AND language=%s", (user_id, db_lang))
+        cursor.execute("SELECT score FROM scores WHERE user_id=%s AND language=%s", (user_id, level_key))
         row = cursor.fetchone()
         if row:
-            new_score = max(0, row['score'] + points)
-            cursor.execute("UPDATE scores SET score=%s WHERE user_id=%s AND language=%s", (new_score, user_id, db_lang))
+            new_score = max(points, row['score'])
+            cursor.execute("UPDATE scores SET score=%s WHERE user_id=%s AND language=%s", (new_score, user_id, level_key))
         else:
             new_score = max(0, points)
-            cursor.execute("INSERT INTO scores (user_id, language, score) VALUES (%s, %s, %s)", (user_id, db_lang, new_score))
+            cursor.execute("INSERT INTO scores (user_id, language, score) VALUES (%s, %s, %s)", (user_id, level_key, new_score))
         conn.commit()
-        # Get total global score
-        cursor.execute("SELECT SUM(score) as total FROM scores WHERE user_id=%s", (user_id,))
-        total = cursor.fetchone()['total'] or 0
         conn.close()
-        return jsonify({"status": "success", "score": new_score, "total_score": int(total)})
+        return jsonify({"status": "success", "score": new_score})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
 
-@app.route('/api/my_score')
-def my_score():
-    """Returns the score for the current user in a specific context."""
+@app.route('/api/my_scores')
+def my_scores():
+    """Returns a dict of all high scores for the current user in a specific context."""
     if 'user_id' not in session:
-        return jsonify({"score": 0})
+        return jsonify({"scores": {}})
     language = request.args.get('lang', 'python')
     mode = request.args.get('mode', 'classic')
     difficulty = request.args.get('difficulty', 'normal')
     db_lang = get_db_lang(language, mode, difficulty)
     user_id = session['user_id']
     if user_id == 0:
-        return jsonify({"score": 0})
+        return jsonify({"scores": {}})
     try:
         conn = get_db(); cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT score FROM scores WHERE user_id=%s AND language=%s", (user_id, db_lang))
-        row = cursor.fetchone()
+        cursor.execute("SELECT language, score FROM scores WHERE user_id=%s AND language LIKE %s", (user_id, f"{db_lang}\_%"))
+        rows = cursor.fetchall()
         conn.close()
-        return jsonify({"score": row['score'] if row else 0})
+        
+        score_map = {}
+        for r in rows:
+            try:
+                lvl = int(r['language'].split('_')[-1])
+                score_map[lvl] = r['score']
+            except:
+                pass
+        return jsonify({"scores": score_map})
     except:
-        return jsonify({"score": 0})
+        return jsonify({"scores": {}})
 
 
 @app.route('/api/reset_progress', methods=['POST'])
@@ -1177,7 +1200,7 @@ def reset_progress():
     try:
         conn = get_db(); cursor = conn.cursor()
         cursor.execute("DELETE FROM progress WHERE user_id=%s AND language=%s", (user_id, db_lang))
-        cursor.execute("DELETE FROM scores WHERE user_id=%s AND language=%s", (user_id, db_lang))
+        cursor.execute("DELETE FROM scores WHERE user_id=%s AND language LIKE %s", (user_id, f"{db_lang}%"))
         conn.commit()
         conn.close()
         return jsonify({"status": "success"})
@@ -1189,44 +1212,86 @@ def get_leaderboard_data():
     """Helper to get all users and their ranks, sorted by global tier."""
     try:
         conn = get_db(); cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, username FROM users")
+        cursor.execute("SELECT id, username, avatar, occupation, total_words_typed FROM users")
         users = cursor.fetchall()
         cursor.execute("SELECT user_id, language, current_task FROM progress")
         all_progress = cursor.fetchall()
-        
-        cursor.execute("SELECT user_id, SUM(score) as total_score FROM scores GROUP BY user_id")
+
+        # Fetch all scores at once
+        cursor.execute("SELECT user_id, language, score FROM scores")
         all_scores = cursor.fetchall()
-        conn.close()
 
         result = []
         for user in users:
             uid = user['id']
             user_prog = [r for r in all_progress if r['user_id'] == uid]
-            user_score = next((s['total_score'] for s in all_scores if s['user_id'] == uid), 0) or 0
+
+            if len(user_prog) == 0:
+                continue
+
             ranks = compute_ranks(user_prog)
+            total_levels = sum(p['current_task'] - 1 for p in user_prog)
+
+            # Total score from scores table
+            user_scores = [s for s in all_scores if s['user_id'] == uid]
+            total_score = sum(s['score'] for s in user_scores)
+
+            # Build lang_progress (same structure as /api/my_profile)
+            lang_progress = {}
+            for lang in ['python', 'java', 'c']:
+                lang_progress[lang] = {}
+                for mode in ['classic', 'builder']:
+                    lang_progress[lang][mode] = {}
+                    for diff in ['normal', 'pro']:
+                        db_lang = get_db_lang(lang, mode, diff)
+                        ml = len((BUILDER_DATA if mode == 'builder' else CLASSIC_DATA).get(lang, []))
+                        lc = 0
+                        for p in user_prog:
+                            if p['language'] == db_lang:
+                                lc = min(max(0, p['current_task'] - 1), ml)
+                        bs = sum(s['score'] for s in user_scores if s['language'] == db_lang)
+                        lang_progress[lang][mode][diff] = {
+                            'levels_completed': lc,
+                            'best_score': bs
+                        }
+
             result.append({
                 'id': uid,
                 'username': user['username'],
+                'avatar': user.get('avatar') or '',
+                'occupation': user.get('occupation') or 'Defender',
+                'total_words_typed': int(user.get('total_words_typed') or 0),
                 'global_rank': ranks['global_rank'],
                 'lang_badges': ranks['lang_badges'],
-                'total_score': int(user_score)
+                'lang_progress': lang_progress,
+                'total_levels': total_levels,
+                'total_score': int(total_score),
+                'sort_val': (ranks['global_rank']['tier'], total_levels)
             })
 
-        # Sort by total score descending
-        result.sort(key=lambda x: x['total_score'], reverse=True)
+        # Sort by global rank tier, then total levels completed
+        result.sort(key=lambda x: x['sort_val'], reverse=True)
+        for r in result:
+            del r['sort_val']
+
         return result
-    except:
+    except Exception as e:
+        print(f"Leaderboard Error: {e}")
         return []
+    finally:
+        if 'conn' in locals() and conn.is_connected():
+            conn.close()
+
 
 @app.route('/api/my_rank')
 def my_rank():
     """Returns language badges, global rank, and numeric positions for the current user."""
     if 'user_id' not in session:
-        return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}})
+        return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_levels': 0, 'total_score': 0})
     
     user_id = session['user_id']
     if (user_id == 0):
-        return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_score': 0})
+        return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_levels': 0, 'total_score': 0})
     
     try:
         leaderboard = get_leaderboard_data()
@@ -1242,7 +1307,7 @@ def my_rank():
         
         if not user_ranks:
             # Fallback if user not in leaderboard yet
-            return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_score': 0})
+            return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_levels': 0, 'total_score': 0})
 
         # Language positions
         lang_pos = {}
@@ -1261,10 +1326,11 @@ def my_rank():
             'lang_badges': user_ranks['lang_badges'],
             'global_pos': global_pos,
             'lang_pos': lang_pos,
+            'total_levels': user_ranks['total_levels'],
             'total_score': user_ranks['total_score']
         })
     except Exception as e:
-        return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_score': 0})
+        return jsonify({**compute_ranks([]), 'global_pos': 0, 'lang_pos': {}, 'total_levels': 0, 'total_score': 0})
 
 
 @app.route('/api/start_game', methods=['POST'])
@@ -1353,6 +1419,159 @@ def leaderboard_filtered():
 
 
 
+@app.route('/api/my_profile')
+def my_profile():
+    """Returns comprehensive profile data for the current user."""
+    if 'user_id' not in session:
+        return jsonify({"status": "fail", "message": "Not authenticated"}), 401
+
+    user_id = session['user_id']
+    if user_id == 0:
+        return jsonify({
+            "status": "success",
+            "username": "ADMIN",
+            "occupation": "System Administrator",
+            "member_since": "2024-01-01",
+            "total_score": 0,
+            "total_levels": 0,
+            "sessions_played": 0,
+            "global_pos": 0,
+            "lang_pos": {},
+            "global_rank": {"name": "Phantom", "icon": "💀", "color": "#ffffff", "tier": 7},
+            "lang_badges": {},
+            "lang_progress": {}
+        })
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor(dictionary=True)
+
+        # Basic user info
+        try:
+            cursor.execute("SELECT username, occupation, created_at, total_words_typed, total_keys_total, total_keys_hit, total_play_time_ms FROM users WHERE id=%s", (user_id,))
+        except Exception:
+            cursor.execute("SELECT username, occupation FROM users WHERE id=%s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            conn.close()
+            return jsonify({"status": "fail", "message": "User not found"}), 404
+
+        # Calculate Lifetime Stats
+        tw = user.get('total_words_typed', 0) or 0
+        tk_total = user.get('total_keys_total', 0) or 0
+        tk_hit = user.get('total_keys_hit', 0) or 0
+        tp_time_ms = user.get('total_play_time_ms', 0) or 0
+
+        # Accuracy = hit / total
+        accuracy = round((tk_hit / tk_total * 100)) if tk_total > 0 else 0
+        # WPM = words / (minutes)
+        wpm = round(tw / (tp_time_ms / 60000)) if tp_time_ms > 60000 else 0
+
+        member_since = ""
+        if user.get('created_at'):
+            try:
+                member_since = user['created_at'].strftime('%m.%d.%Y')
+            except:
+                member_since = str(user['created_at'])[:10]
+
+        # All progress rows
+        cursor.execute("SELECT language, current_task FROM progress WHERE user_id=%s", (user_id,))
+        progress_rows = cursor.fetchall()
+
+        # All scores
+        cursor.execute("SELECT language, score FROM scores WHERE user_id=%s", (user_id,))
+        score_rows = cursor.fetchall()
+
+        # Sessions played = number of distinct progress tracks (each language/mode/diff is one track)
+        sessions_played = len(progress_rows)
+
+        # Compute ranks
+        ranks = compute_ranks(progress_rows)
+
+        # Build per-language, per-mode, per-difficulty breakdown
+        langs = ['python', 'java', 'c']
+        # Map language name to dataset key (CLASSIC_DATA/BUILDER_DATA use 'c', 'java', 'python')
+        lang_key_map = {'python': 'python', 'java': 'java', 'c': 'c'}
+        modes = ['classic', 'builder']
+        diffs = ['normal', 'pro']
+        lang_progress = {}
+        total_score = 0
+
+        for lang in langs:
+            lang_progress[lang] = {}
+            for mode in modes:
+                lang_progress[lang][mode] = {}
+                dataset = BUILDER_DATA if mode == 'builder' else CLASSIC_DATA
+                max_levels = len(dataset.get(lang_key_map[lang], []))
+                for diff in diffs:
+                    db_lang = get_db_lang(lang, mode, diff)
+
+                    # Levels completed — capped at actual dataset size
+                    lvl_completed = 0
+                    for p in progress_rows:
+                        if p['language'] == db_lang:
+                            lvl_completed = min(max(0, p['current_task'] - 1), max_levels)
+
+                    # Best score: match both legacy 'py_c_n' and per-level 'py_c_n_1' rows
+                    best_score = 0
+                    for s in score_rows:
+                        slang = s['language']
+                        # Match exact track key (legacy) OR level-keyed entries (py_c_n_1, py_c_n_2...)
+                        if slang == db_lang or slang.startswith(db_lang + '_'):
+                            best_score += s['score']
+
+                    lang_progress[lang][mode][diff] = {
+                        'levels_completed': lvl_completed,
+                        'best_score': best_score
+                    }
+
+        # Total score = sum across all score rows for this user
+        total_score = sum(s['score'] for s in score_rows)
+        # Total levels completed = sum across all tracks (capped per track at max_levels above)
+        total_levels = sum(
+            lang_progress[lg][md][df]['levels_completed']
+            for lg in langs for md in modes for df in diffs
+        )
+
+        # Global leaderboard position (to derive global_pos and lang_pos)
+        leaderboard = get_leaderboard_data()
+        global_pos = 0
+        lang_pos = {}
+        for i, entry in enumerate(leaderboard):
+            if entry['id'] == user_id:
+                global_pos = i + 1
+                break
+        for lang in langs:
+            sorted_lang = sorted(leaderboard, key=lambda x: x['lang_badges'][lang]['level'], reverse=True)
+            for i, entry in enumerate(sorted_lang):
+                if entry['id'] == user_id:
+                    lang_pos[lang] = i + 1
+                    break
+
+        conn.close()
+        return jsonify({
+            "status": "success",
+            "username": user['username'],
+            "occupation": user.get('occupation', 'Defender'),
+            "member_since": member_since,
+            "total_score": int(total_score),
+            "total_levels": total_levels,
+            "sessions_played": sessions_played,
+            "global_pos": global_pos,
+            "lang_pos": lang_pos,
+            "global_rank": ranks['global_rank'],
+            "lang_badges": ranks['lang_badges'],
+            "lang_progress": lang_progress,
+            "lifetime_accuracy": accuracy,
+            "lifetime_wpm": wpm,
+            "total_words_typed": int(tw)
+        })
+    except Exception as e:
+        if 'conn' in locals() and conn.is_connected():
+            conn.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/api/logout', methods=['POST'])
 def logout():
     session.clear()
@@ -1371,18 +1590,35 @@ def check_session():
             else:
                 cursor.execute("SELECT * FROM users WHERE id=%s", (session['user_id'],))
                 user = cursor.fetchone()
-            conn.close()
             
             if user:
+                user_id = user['id']
+                # FETCH LIVE SESSION DATA ON REFRESH
+                cursor.execute("SELECT SUM(score) as total FROM scores WHERE user_id=%s", (user_id,))
+                total_score = cursor.fetchone()['total'] or 0
+                
+                cursor.execute("SELECT language, current_task FROM progress WHERE user_id=%s", (user_id,))
+                progress_rows = cursor.fetchall()
+                ranks = compute_ranks(progress_rows)
+                
+                total_levels = sum(p['current_task'] - 1 for p in progress_rows)
+                
+                conn.close()
                 return jsonify({
                     "status": "success",
                     "username": user['username'],
                     "full_name": user.get('full_name', ''),
                     "occupation": user.get('occupation', 'Defender'),
+                    "total_score": int(total_score),
+                    "total_levels": total_levels,
+                    "global_rank": ranks['global_rank'],
+                    "lang_badges": ranks['lang_badges'],
                     "is_admin": session['user_id'] == 0
                 })
+            conn.close()
         except:
-            pass
+            if 'conn' in locals() and conn.is_connected():
+                conn.close()
     return jsonify({"status": "fail"})
 
 

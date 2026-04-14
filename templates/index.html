@@ -179,8 +179,8 @@
                 <div class="dd-item-sub">Preferences &amp; audio</div>
               </div>
             </div>
-            <div class="dd-item danger" onclick="goTo('screen-login');closeDD('bw-idle')">
-              <div class="dd-icon">⬡</div>
+            <div class="dd-item danger" onclick="apiLogout();closeDD('bw-idle')">
+              <div class="dd-icon">⭡</div>
               <div class="dd-item-text">
                 <div class="dd-item-label">Abort Mission</div>
                 <div class="dd-item-sub">Return to login</div>
@@ -200,7 +200,7 @@
           <span class="mc-label">Mission</span>
           <div class="mc-chip"><span class="mc-key">Status</span><span class="mc-val online"
               id="idleStatus">ONLINE</span></div>
-          <div class="mc-chip"><span class="mc-key">Cmdr</span><span class="mc-val" id="idleCmdr">—</span></div>
+          <div class="mc-chip"><span class="mc-key">Commander</span><span class="mc-val" id="idleCmdr">—</span></div>
           <div class="mc-chip"><span class="mc-key">Rank</span><span class="mc-val rank-badge-hud"
               style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;">🔵 RECRUIT</span></div>
 
@@ -230,15 +230,12 @@
               </div>
               <div class="setup-card" id="card-builder" onclick="wizardSelectMode('builder')">
                 <div class="setup-card-icon">🛠</div>
-                <div class="setup-card-title">Code Builder<span class="nexus-builder-pts-badge"
-                    id="nexus-builder-pts-badge">0</span></div>
+                <div class="setup-card-title">Code Builder</div>
                 <div class="setup-card-desc">Reconstruct full lines of code from memory. Peek the code list to prepare.
                 </div>
               </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:4px;align-items:center;">
-              <div id="globalPointsTotal" class="dashboard-points-wrap">TOTAL POINTS: <span id="idleScore"
-                  style="color:var(--gold)">0</span></div>
               <button onclick="openModal('syntaxModal')"
                 style="font-family:var(--hud-mono);font-size:var(--hud-sz);letter-spacing:2px;text-transform:uppercase;padding:7px 18px;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.18);color:rgba(0,212,255,0.9);cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:all 0.2s;"
                 onmouseover="this.style.borderColor='rgba(0,212,255,0.4)';this.style.color='var(--cyan)'"
@@ -915,19 +912,19 @@
         <div class="modal-body">
           <div id="ach-all" class="tab-panel active">
             <div class="ach-grid">
-              <div class="ach-card unlocked">
+              <div class="ach-card unlocked first-uplink-card">
                 <div class="ach-icon">🚀</div>
                 <div class="ach-info">
                   <div class="ach-name">First Uplink</div>
                   <div class="ach-desc">Successfully log in for the first time and establish your uplink.</div>
                 </div><span class="ach-badge unlocked">UNLOCKED</span>
               </div>
-              <div class="ach-card unlocked">
+              <div class="ach-card clean-sweep-card locked">
                 <div class="ach-icon">🎯</div>
                 <div class="ach-info">
                   <div class="ach-name">Clean Sweep</div>
                   <div class="ach-desc">Complete a full Classic level without a single keyword breaching the line.</div>
-                </div><span class="ach-badge unlocked">UNLOCKED</span>
+                </div><span class="ach-badge locked">LOCKED</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">🔥</div>
@@ -935,9 +932,9 @@
                   <div class="ach-name">Combo Ignition</div>
                   <div class="ach-desc">Achieve a ×5 combo multiplier in a single session.</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:60%"></div>
+                    <div class="ach-progress-fill" id="ach-all-combo-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">3/5</span>
+                </div><span class="ach-badge locked" id="ach-all-combo-badge">0/5</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">🐍</div>
@@ -945,9 +942,9 @@
                   <div class="ach-name">Pythonista</div>
                   <div class="ach-desc">Complete all Python levels in Classic Defense on any difficulty.</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:33%"></div>
+                    <div class="ach-progress-fill" id="ach-all-python-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">1/3</span>
+                </div><span class="ach-badge locked" id="ach-all-python-badge">0/6</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">☕</div>
@@ -955,29 +952,26 @@
                   <div class="ach-name">Java Jockey</div>
                   <div class="ach-desc">Complete all Java levels in Classic Defense on any difficulty.</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:0%"></div>
+                    <div class="ach-progress-fill" id="ach-all-java-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">0/3</span>
+                </div><span class="ach-badge locked" id="ach-all-java-badge">0/6</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">⚡</div>
                 <div class="ach-info">
                   <div class="ach-name">Speed Daemon</div>
                   <div class="ach-desc">Destroy 10 keywords in under 15 seconds.</div>
-                  <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:0%"></div>
-                  </div>
                 </div><span class="ach-badge locked">LOCKED</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">🛠</div>
                 <div class="ach-info">
                   <div class="ach-name">Syntax Surgeon</div>
-                  <div class="ach-desc">Correct 5 corrupt code lines in Code Builder mode.</div>
+                  <div class="ach-desc">Complete 5 Code Builder levels (any language).</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:20%"></div>
+                    <div class="ach-progress-fill" id="ach-all-surgeon-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">1/5</span>
+                </div><span class="ach-badge locked" id="ach-all-surgeon-badge">0/5</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">🏆</div>
@@ -1004,19 +998,19 @@
           </div>
           <div id="ach-unlocked" class="tab-panel">
             <div class="ach-grid">
-              <div class="ach-card unlocked">
+              <div class="ach-card unlocked first-uplink-card">
                 <div class="ach-icon">🚀</div>
                 <div class="ach-info">
                   <div class="ach-name">First Uplink</div>
                   <div class="ach-desc">Successfully log in for the first time and establish your uplink.</div>
                 </div><span class="ach-badge unlocked">UNLOCKED</span>
               </div>
-              <div class="ach-card unlocked">
+              <div class="ach-card clean-sweep-card locked">
                 <div class="ach-icon">🎯</div>
                 <div class="ach-info">
                   <div class="ach-name">Clean Sweep</div>
                   <div class="ach-desc">Complete a full Classic level without a single keyword breaching the line.</div>
-                </div><span class="ach-badge unlocked">UNLOCKED</span>
+                </div><span class="ach-badge locked">LOCKED</span>
               </div>
             </div>
           </div>
@@ -1028,9 +1022,9 @@
                   <div class="ach-name">Combo Ignition</div>
                   <div class="ach-desc">Achieve a ×5 combo multiplier in a single session.</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:60%"></div>
+                    <div class="ach-progress-fill" id="ach-combo-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">3/5</span>
+                </div><span class="ach-badge locked" id="ach-combo-badge">0/5</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">🐍</div>
@@ -1040,7 +1034,7 @@
                   <div class="ach-progress-bar">
                     <div class="ach-progress-fill" id="ach-python-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked" id="ach-python-badge">0/5</span>
+                </div><span class="ach-badge locked" id="ach-python-badge">0/6</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">☕</div>
@@ -1050,7 +1044,7 @@
                   <div class="ach-progress-bar">
                     <div class="ach-progress-fill" id="ach-java-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked" id="ach-java-badge">0/5</span>
+                </div><span class="ach-badge locked" id="ach-java-badge">0/6</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">⚡</div>
@@ -1063,11 +1057,11 @@
                 <div class="ach-icon">🛠</div>
                 <div class="ach-info">
                   <div class="ach-name">Syntax Surgeon</div>
-                  <div class="ach-desc">Correct 5 corrupt code lines in Code Builder mode.</div>
+                  <div class="ach-desc">Complete 5 Code Builder levels (any language).</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:20%"></div>
+                    <div class="ach-progress-fill" id="ach-surgeon-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">1/5</span>
+                </div><span class="ach-badge locked" id="ach-surgeon-badge">0/5</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">🏆</div>
@@ -1094,7 +1088,7 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer-note">2 / 10 achievements unlocked</div>
+      <div class="modal-footer-note" id="achFooterNote">1 / 10 achievements unlocked</div>
     </div>
   </div>
 
@@ -1120,96 +1114,97 @@
         <!-- OWN PROFILE panel -->
         <div id="ownProfilePanel">
           <div class="modal-body">
-            <div class="profile-grid">
-              <div class="profile-left">
-                <!-- Avatar — click to open icon picker (own profile only) -->
-                <div class="profile-avatar-wrap own" onclick="openIconPicker()" title="Change avatar">
-                  <div class="profile-avatar">
-                    <div class="profile-avatar-icon" id="myAvatarIcon">🚀</div>
-                    <div class="profile-handle">Shadow</div>
-                    <div class="profile-rank rank-badge-hud" id="myGlobalRank" style="cursor:default;">▸ RANK: RECRUIT ◂
+            <div class="profile-grid" style="display: flex; gap: 24px;">
+              <div class="profile-left" style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px;">
+                <!-- Top Box: Avatar, Username, Badge, Global Position -->
+                <div class="profile-info-card" style="text-align: center; display: flex; flex-direction: column; align-items: center; padding: 24px 16px;">
+                  <div class="profile-avatar-wrap own" onclick="openIconPicker()" title="Change avatar" style="margin-bottom: 16px;">
+                    <div class="profile-avatar">
+                      <div class="profile-avatar-icon" id="myAvatarIcon">🚀</div>
                     </div>
-                    <div id="myGlobalRankPos"
-                      style="font-family:var(--hud-mono);font-size:10px;color:rgba(200,220,240,0.6);margin-top:2px;">
-                      GLOBAL: #0</div>
+                    <div class="avatar-edit-hover">
+                      <div class="avatar-edit-icon">✏️</div>
+                      <div class="avatar-edit-label">Change Icon</div>
+                    </div>
                   </div>
-                  <div class="avatar-edit-hover">
-                    <div class="avatar-edit-icon">✏️</div>
-                    <div class="avatar-edit-label">Change Icon</div>
-                  </div>
+                  <div class="profile-handle" id="ownProfileHandle" style="font-size: 24px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase;">—</div>
+                  <div class="profile-rank rank-badge-hud" id="myGlobalRank" style="cursor:default; margin-bottom: 8px;">— LOADING —</div>
+                  <div id="myGlobalRankPos" style="font-family:var(--hud-mono);font-size:11px;color:rgba(200,220,240,0.6);font-weight:bold;">GLOBAL: —</div>
                 </div>
+
+                <!-- Bottom Box: Occupation, Member Since, Status, Difficulty -->
                 <div class="profile-info-card">
-                  <div class="profile-info-row"><span class="profile-info-key">Occupation</span><span
-                      class="profile-info-val">Developer</span></div>
-                  <div class="profile-info-row"><span class="profile-info-key">Member Since</span><span
-                      class="profile-info-val">2025</span></div>
-                  <div class="profile-info-row"><span class="profile-info-key">Status</span><span
-                      class="profile-info-val" style="color:var(--aurora);">ONLINE</span></div>
-                  <div class="profile-info-row"><span class="profile-info-key">Total Points</span><span
-                      class="profile-info-val" id="profileTotalPoints" style="color:var(--gold);">0</span></div>
-                  <div class="profile-info-row"><span class="profile-info-key">Difficulty</span><span
-                      class="profile-info-val">Normal</span></div>
+                  <div class="profile-info-row"><span class="profile-info-key">Occupation</span><span class="profile-info-val" id="profileInfoOccupation">—</span></div>
+                  <div class="profile-info-row"><span class="profile-info-key">Member Since</span><span class="profile-info-val" id="profileInfoMSince">—</span></div>
+                  <div class="profile-info-row"><span class="profile-info-key">Status</span><span class="profile-info-val" id="profileInfoStatus" style="color:var(--aurora);">—</span></div>
+                  <div class="profile-info-row"><span class="profile-info-key">Difficulty</span><span class="profile-info-val" id="profileInfoDiff">—</span></div>
                 </div>
               </div>
-              <div class="profile-right">
-                <div>
-                  <div class="profile-stats-header">Combat Statistics</div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🏅</span><span
-                      class="profile-stat-label">Total Score</span><span class="profile-stat-val gold"
-                      id="profileStatTotal">0</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🎮</span><span
-                      class="profile-stat-label">Sessions Played</span><span class="profile-stat-val"
-                      id="profileStatSessions">0</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">⌨️</span><span
-                      class="profile-stat-label">Keywords Destroyed</span><span class="profile-stat-val cyan"
-                      id="profileStatWords">0</span>
+
+              <div class="profile-right" style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px;">
+                <!-- Top Right: Filters Box -->
+                <div class="profile-info-card" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
+                  <div style="display: flex; align-items: center;">
+                    <span style="width: 100px; font-family:var(--hud-mono); font-size:11px; color:rgba(200,220,240,0.6);">MODE:</span>
+                    <div style="display: flex; gap: 8px;">
+                      <div id="pfPill_classic" class="profile-filter-pill active-pill" onclick="profileSetMode('classic')">Classic</div>
+                      <div id="pfPill_builder" class="profile-filter-pill" onclick="profileSetMode('builder')">Builder</div>
+                    </div>
                   </div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🎯</span><span
-                      class="profile-stat-label">Best Accuracy</span><span class="profile-stat-val green"
-                      id="profileStatAccuracy">0%</span>
+                  <div style="display: flex; align-items: center;">
+                    <span style="width: 100px; font-family:var(--hud-mono); font-size:11px; color:rgba(200,220,240,0.6);">DIFFICULTY:</span>
+                    <div style="display: flex; gap: 8px;">
+                      <div id="pfPill_normal" class="profile-filter-pill active-pill" onclick="profileSetDiff('normal')">Normal</div>
+                      <div id="pfPill_pro" class="profile-filter-pill" onclick="profileSetDiff('pro')">Pro</div>
+                    </div>
                   </div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🔥</span><span
-                      class="profile-stat-label">Max Combo</span><span class="profile-stat-val gold">×7</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">⏱</span><span
-                      class="profile-stat-label">Total Play Time</span><span class="profile-stat-val">2h 14m</span>
-                  </div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🏆</span><span
-                      class="profile-stat-label">Levels Completed</span><span class="profile-stat-val cyan">3</span>
-                  </div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">⭐</span><span
-                      class="profile-stat-label">Achievements</span><span class="profile-stat-val gold">2 / 10</span>
+                  <div style="display: flex; align-items: center;">
+                    <span style="width: 100px; font-family:var(--hud-mono); font-size:11px; color:rgba(200,220,240,0.6);">LANGUAGE:</span>
+                    <div style="display: flex; gap: 8px;">
+                      <div id="pfPill_global" class="profile-filter-pill active-pill" onclick="profileSetLang('global')">Global</div>
+                      <div id="pfPill_python" class="profile-filter-pill" onclick="profileSetLang('python')">Python</div>
+                      <div id="pfPill_java" class="profile-filter-pill" onclick="profileSetLang('java')">Java</div>
+                      <div id="pfPill_c" class="profile-filter-pill" onclick="profileSetLang('c')">C-Lang</div>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div class="profile-stats-header" style="margin-top:16px;">Language Rank Badges</div>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-                    <div class="profile-lang-card" style="flex:1;min-width:80px;">
-                      <div class="profile-lang-name"><i class="devicon-python-plain"></i> Python</div>
-                      <div id="langBadge_python"
-                        style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">
-                        ⬡ Recruit</div>
-                      <div id="langBadge_python_pos"
-                        style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">
-                        RANK: #0</div>
+
+                <!-- Middle Right: Stats Grid -->
+                <div class="profile-info-card" style="padding: 20px;">
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 40px; row-gap: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 8px;">
+                      <span class="profile-stat-label">Total Score:</span><span class="profile-stat-val gold" id="profileStatScore">—</span>
                     </div>
-                    <div class="profile-lang-card" style="flex:1;min-width:80px;">
-                      <div class="profile-lang-name"><i class="devicon-java-plain"></i> Java</div>
-                      <div id="langBadge_java"
-                        style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">
-                        ⬡ Recruit</div>
-                      <div id="langBadge_java_pos"
-                        style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">
-                        RANK: #0</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 8px;">
+                      <span class="profile-stat-label">Levels Cleared:</span><span class="profile-stat-val" id="profileStatSessions">—</span>
                     </div>
-                    <div class="profile-lang-card" style="flex:1;min-width:80px;">
-                      <div class="profile-lang-name"><i class="devicon-c-plain"></i> C-Lang</div>
-                      <div id="langBadge_c"
-                        style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">
-                        ⬡ Recruit</div>
-                      <div id="langBadge_c_pos"
-                        style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">
-                        RANK: #0</div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 8px;">
+                      <span class="profile-stat-label">Keywords Destroyed:</span><span class="profile-stat-val cyan" id="profileStatWords">—</span>
                     </div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                      <span class="profile-stat-label">Achievements:</span><span class="profile-stat-val gold" id="profileStatAchievements">—</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom Right: Language Rank Badges -->
+                <div style="display: flex; gap: 16px;">
+                  <div class="profile-info-card" style="flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; padding: 16px 12px;">
+                    <div class="profile-lang-name" style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">Python</div>
+                    <div id="langBadge_python_pos" style="font-family: var(--hud-mono); font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 4px;">—</div>
+                    <div id="langBadge_python" style="font-family: var(--hud-mono); font-size: 11px; font-weight: 700; color: #4a6080;">—</div>
+                  </div>
+                  <div class="profile-info-card" style="flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; padding: 16px 12px;">
+                    <div class="profile-lang-name" style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">Java</div>
+                    <div id="langBadge_java_pos" style="font-family: var(--hud-mono); font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 4px;">—</div>
+                    <div id="langBadge_java" style="font-family: var(--hud-mono); font-size: 11px; font-weight: 700; color: #4a6080;">—</div>
+                  </div>
+                  <div class="profile-info-card" style="flex: 1; text-align: center; display: flex; flex-direction: column; justify-content: center; padding: 16px 12px;">
+                    <div class="profile-lang-name" style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">C-Lang</div>
+                    <div id="langBadge_c_pos" style="font-family: var(--hud-mono); font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 4px;">—</div>
+                    <div id="langBadge_c" style="font-family: var(--hud-mono); font-size: 11px; font-weight: 700; color: #4a6080;">—</div>
                   </div>
                 </div>
               </div>
@@ -1248,24 +1243,23 @@
               </div>
               <div class="profile-right">
                 <div>
-                  <div class="profile-stats-header">Combat Statistics</div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🏅</span><span
+                  <div class="profile-stat-row"><span class="profile-stat-icon">📈</span><span
                       class="profile-stat-label">Total Score</span><span class="profile-stat-val gold"
-                      id="profileTotalPoints">0</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🎮</span><span
-                      class="profile-stat-label">Sessions Played</span><span class="profile-stat-val"
+                      id="vs-score">—</span></div>
+                  <div class="profile-stat-row"><span class="profile-stat-icon">🏆</span><span
+                      class="profile-stat-label">Levels Cleared</span><span class="profile-stat-val"
                       id="vs-sessions">—</span></div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">⌨️</span><span
                       class="profile-stat-label">Keywords Destroyed</span><span class="profile-stat-val cyan"
                       id="vs-kw">—</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🎯</span><span
-                      class="profile-stat-label">Best Accuracy</span><span class="profile-stat-val green"
+                  <div class="profile-stat-row"><span class="profile-stat-icon">🌍</span><span
+                      class="profile-stat-label">Strongest Language</span><span class="profile-stat-val green"
                       id="vs-acc">—</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">🔥</span><span
-                      class="profile-stat-label">Max Combo</span><span class="profile-stat-val gold"
+                  <div class="profile-stat-row"><span class="profile-stat-icon">🏅</span><span
+                      class="profile-stat-label">Language Badge</span><span class="profile-stat-val gold"
                       id="vs-combo">—</span></div>
-                  <div class="profile-stat-row"><span class="profile-stat-icon">⏱</span><span
-                      class="profile-stat-label">Total Play Time</span><span class="profile-stat-val"
+                  <div class="profile-stat-row"><span class="profile-stat-icon">⭡</span><span
+                      class="profile-stat-label">Global Rank</span><span class="profile-stat-val"
                       id="vs-time">—</span></div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">🏆</span><span
                       class="profile-stat-label">Levels Completed</span><span class="profile-stat-val cyan"
@@ -1323,91 +1317,106 @@
           <div id="set-audio" class="tab-panel active">
             <div class="settings-section">
               <div class="settings-section-header"><span class="section-icon">🔊</span>Audio Output</div>
+
               <div class="setting-row">
                 <div class="setting-info">
-                  <div class="setting-label">Master Volume</div>
+                  <div class="setting-label">Ambient Sounds</div>
                   <div class="setting-sub">Overall game audio level</div>
                 </div>
                 <div class="setting-control">
-                  <div class="setting-slider-wrap"><input type="range" class="setting-slider" id="set-master-vol"
-                      min="0" max="100" value="75"
-                      oninput="this.nextElementSibling.textContent=this.value;setMusicVolume(this.value)"><span
-                      class="setting-slider-val">80</span></div>
+                  <div class="setting-slider-wrap">
+                    <input type="range" class="setting-slider" id="set-master-vol" min="0" max="100" value="75"
+                      oninput="this.nextElementSibling.textContent=this.value; window.setMusicVolume(this.value);">
+                    <span class="setting-slider-val">75</span>
+                  </div>
                 </div>
               </div>
+
               <div class="setting-row">
                 <div class="setting-info">
                   <div class="setting-label">Sound Effects</div>
                   <div class="setting-sub">Keyword destroy, breach, combo sounds</div>
                 </div>
                 <div class="setting-control">
-                  <div class="setting-slider-wrap"><input type="range" class="setting-slider" min="0" max="100"
-                      value="75" oninput="this.nextElementSibling.textContent=this.value"><span
-                      class="setting-slider-val">75</span></div>
+                  <label class="toggle">
+                    <input type="checkbox" id="set-sfx-toggle" checked onchange="window.GS_SFX_ENABLED=this.checked;localStorage.setItem('cd_sfx',this.checked?'1':'0')">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-thumb"></div>
+                  </label>
                 </div>
               </div>
-              <div class="setting-row">
-                <div class="setting-info">
-                  <div class="setting-label">Ambient / Music</div>
-                  <div class="setting-sub">Background atmospheric soundtrack</div>
-                </div>
-                <div class="setting-control">
-                  <div class="setting-slider-wrap"><input type="range" class="setting-slider" min="0" max="100"
-                      value="50" oninput="this.nextElementSibling.textContent=this.value"><span
-                      class="setting-slider-val">50</span></div>
-                </div>
-              </div>
+
               <div class="setting-row">
                 <div class="setting-info">
                   <div class="setting-label">UI Sounds</div>
                   <div class="setting-sub">Button clicks, menu transitions</div>
                 </div>
-                <div class="setting-control"><label class="toggle"><input type="checkbox" checked id="set-ui-sounds">
+                <div class="setting-control">
+                  <label class="toggle">
+                    <input type="checkbox" checked id="set-ui-sounds" onchange="window.GS_UI_SFX=this.checked;localStorage.setItem('cd_uisfx',this.checked?'1':'0')">
                     <div class="toggle-track"></div>
                     <div class="toggle-thumb"></div>
-                  </label></div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- DISPLAY TAB REMOVED -->
-
-          <!-- QUALITY OF LIFE TAB -->
+          <!-- QOL TAB -->
           <div id="set-gameplay" class="tab-panel">
             <div class="settings-section">
-              <div class="settings-section-header"><span class="section-icon">🎮</span>Terminal &amp; Input</div>
+              <div class="settings-section-header"><span class="section-icon">🎮</span>Gameplay</div>
+
               <div class="setting-row">
                 <div class="setting-info">
-                  <div class="setting-label">Keystroke Error Flash</div>
-                  <div class="setting-sub">Flash the terminal red on an incorrect keypress</div>
+                  <div class="setting-label">Score Popups</div>
+                  <div class="setting-sub">Show +pts popup above each destroyed word</div>
                 </div>
-                <div class="setting-control"><label class="toggle"><input type="checkbox" checked id="set-error-flash">
+                <div class="setting-control">
+                  <label class="toggle">
+                    <input type="checkbox" id="set-score-popup" checked
+                      onchange="window.GS_SHOW_SCORE_POPUP=this.checked;localStorage.setItem('cd_scorePopup',this.checked?'1':'0')">
                     <div class="toggle-track"></div>
                     <div class="toggle-thumb"></div>
-                  </label></div>
+                  </label>
+                </div>
               </div>
-            </div>
-            <div class="settings-section">
-              <div class="settings-section-header"><span class="section-icon">📊</span>HUD &amp; Feedback</div>
+
               <div class="setting-row">
                 <div class="setting-info">
-                  <div class="setting-label">Show Score Popups</div>
-                  <div class="setting-sub">Floating +10 / +20 pt animations when words are destroyed</div>
+                  <div class="setting-label">Auto-Advance Level</div>
+                  <div class="setting-sub">Skip the success screen and jump straight to next level</div>
                 </div>
-                <div class="setting-control"><label class="toggle"><input type="checkbox" checked id="set-score-popups">
+                <div class="setting-control">
+                  <label class="toggle">
+                    <input type="checkbox" id="set-auto-advance"
+                      onchange="window.GS_AUTO_ADVANCE=this.checked;localStorage.setItem('cd_autoAdvance',this.checked?'1':'0')">
                     <div class="toggle-track"></div>
                     <div class="toggle-thumb"></div>
-                  </label></div>
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-info">
+                  <div class="setting-label">Reduced Motion</div>
+                  <div class="setting-sub">Disable wormhole canvas background animation</div>
+                </div>
+                <div class="setting-control">
+                  <label class="toggle">
+                    <input type="checkbox" id="set-reduce-motion"
+                      onchange="window.GS_REDUCE_MOTION=this.checked;localStorage.setItem('cd_reduceMotion',this.checked?'1':'0');document.getElementById('wormholeCanvas').style.display=this.checked?'none':'';">
+                    <div class="toggle-track"></div>
+                    <div class="toggle-thumb"></div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
-
         </div>
       </div>
-      <div class="modal-footer-note">Settings are saved automatically</div>
     </div>
   </div>
-
   <!-- SYNTAX MEANING MODAL -->
   <div class="modal-overlay" id="syntaxModal">
     <div class="modal wide" style="max-height:88vh;">
@@ -1421,7 +1430,8 @@
           Python</button>
         <button class="modal-tab" onclick="switchTab('syn','java',this)"><i class="devicon-java-plain"></i>
           Java</button>
-        <button class="modal-tab" onclick="switchTab('syn','c',this)"><i class="devicon-c-plain"></i> C-Lang</button>
+        <button class="modal-tab" onclick="switchTab('syn','c',this)"><i class="devicon-c-plain"></i>
+          C-Lang</button>
       </div>
       <div class="modal-scroll">
         <div class="modal-body">
@@ -1433,13 +1443,15 @@
               <div class="syn-card">
                 <div class="syn-sym">=</div>
                 <div class="syn-name">Assignment</div>
-                <div class="syn-desc">Stores a value into a variable. <span class="syn-ex">x = 5</span> means x now
+                <div class="syn-desc">Stores a value into a variable. <span class="syn-ex">x = 5</span> means x
+                  now
                   holds 5.</div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">==</div>
                 <div class="syn-name">Equality Check</div>
-                <div class="syn-desc">Compares two values. Returns true if they're equal. <span class="syn-ex">x ==
+                <div class="syn-desc">Compares two values. Returns true if they're equal. <span class="syn-ex">x
+                    ==
                     5</span></div>
               </div>
               <div class="syn-card">
@@ -1450,13 +1462,15 @@
               <div class="syn-card">
                 <div class="syn-sym">&gt; &lt;</div>
                 <div class="syn-name">Comparison</div>
-                <div class="syn-desc">Greater-than / less-than. Used in conditions. <span class="syn-ex">if x &gt;
+                <div class="syn-desc">Greater-than / less-than. Used in conditions. <span class="syn-ex">if x
+                    &gt;
                     5</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">+</div>
                 <div class="syn-name">Add / Concat</div>
-                <div class="syn-desc">Adds numbers or joins strings. <span class="syn-ex">"Hi " + name</span></div>
+                <div class="syn-desc">Adds numbers or joins strings. <span class="syn-ex">"Hi " + name</span>
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">- * /</div>
@@ -1477,7 +1491,8 @@
               <div class="syn-card">
                 <div class="syn-sym">[ ]</div>
                 <div class="syn-name">Brackets</div>
-                <div class="syn-desc">Defines a list or accesses an index. <span class="syn-ex">nums[0]</span></div>
+                <div class="syn-desc">Defines a list or accesses an index. <span class="syn-ex">nums[0]</span>
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">{ }</div>
@@ -1504,25 +1519,29 @@
               <div class="syn-card">
                 <div class="syn-sym">:</div>
                 <div class="syn-name">Block Start</div>
-                <div class="syn-desc">In Python, starts a block after if/for/def/class. <span class="syn-ex">if x &gt;
+                <div class="syn-desc">In Python, starts a block after if/for/def/class. <span class="syn-ex">if
+                    x &gt;
                     0:</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">→ indent</div>
                 <div class="syn-name">Indentation</div>
-                <div class="syn-desc">In Python, 4 spaces inside a block means "this belongs to the if/for/def above".
+                <div class="syn-desc">In Python, 4 spaces inside a block means "this belongs to the if/for/def
+                  above".
                 </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">&amp;&amp; || !</div>
                 <div class="syn-name">Logic (Java/C)</div>
-                <div class="syn-desc">AND, OR, NOT. Combine conditions. <span class="syn-ex">x &gt; 0 &amp;&amp; y &gt;
+                <div class="syn-desc">AND, OR, NOT. Combine conditions. <span class="syn-ex">x &gt; 0 &amp;&amp;
+                    y &gt;
                     0</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym">and or not</div>
                 <div class="syn-name">Logic (Python)</div>
-                <div class="syn-desc">Same as &amp;&amp; || ! but written as words. <span class="syn-ex">x &gt; 0 and y
+                <div class="syn-desc">Same as &amp;&amp; || ! but written as words. <span class="syn-ex">x &gt;
+                    0 and y
                     &gt; 0</span></div>
               </div>
               <div class="syn-card">
@@ -1552,7 +1571,8 @@
               <div class="syn-card">
                 <div class="syn-sym kw-py">int()</div>
                 <div class="syn-name">Integer Cast</div>
-                <div class="syn-desc">Converts a value to a whole number. <span class="syn-ex">int("42") → 42</span>
+                <div class="syn-desc">Converts a value to a whole number. <span class="syn-ex">int("42") →
+                    42</span>
                 </div>
               </div>
               <div class="syn-card">
@@ -1563,12 +1583,14 @@
               <div class="syn-card">
                 <div class="syn-sym kw-py">float()</div>
                 <div class="syn-name">Decimal Cast</div>
-                <div class="syn-desc">Converts to decimal number. <span class="syn-ex">float("3.14") → 3.14</span></div>
+                <div class="syn-desc">Converts to decimal number. <span class="syn-ex">float("3.14") →
+                    3.14</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">if / elif / else</div>
                 <div class="syn-name">Conditional</div>
-                <div class="syn-desc">Runs code only if a condition is true. <span class="syn-ex">if x &gt; 0: ... else:
+                <div class="syn-desc">Runs code only if a condition is true. <span class="syn-ex">if x &gt; 0:
+                    ... else:
                     ...</span></div>
               </div>
               <div class="syn-card">
@@ -1580,19 +1602,22 @@
               <div class="syn-card">
                 <div class="syn-sym kw-py">while</div>
                 <div class="syn-name">While Loop</div>
-                <div class="syn-desc">Repeats as long as a condition stays true. <span class="syn-ex">while x &lt;
+                <div class="syn-desc">Repeats as long as a condition stays true. <span class="syn-ex">while x
+                    &lt;
                     10:</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">def</div>
                 <div class="syn-name">Define Function</div>
-                <div class="syn-desc">Creates a reusable block of code. <span class="syn-ex">def greet(name):</span>
+                <div class="syn-desc">Creates a reusable block of code. <span class="syn-ex">def
+                    greet(name):</span>
                 </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">return</div>
                 <div class="syn-name">Return Value</div>
-                <div class="syn-desc">Sends a value back from a function. <span class="syn-ex">return x + 1</span></div>
+                <div class="syn-desc">Sends a value back from a function. <span class="syn-ex">return x +
+                    1</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">class</div>
@@ -1607,12 +1632,14 @@
               <div class="syn-card">
                 <div class="syn-sym kw-py">len()</div>
                 <div class="syn-name">Length</div>
-                <div class="syn-desc">Returns how many items are in a list or how many characters in a string.</div>
+                <div class="syn-desc">Returns how many items are in a list or how many characters in a string.
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">list / dict</div>
                 <div class="syn-name">Collections</div>
-                <div class="syn-desc">list: ordered collection <span class="syn-ex">[1,2,3]</span>. dict: key-value
+                <div class="syn-desc">list: ordered collection <span class="syn-ex">[1,2,3]</span>. dict:
+                  key-value
                   pairs <span class="syn-ex">{'a':1}</span></div>
               </div>
               <div class="syn-card">
@@ -1623,13 +1650,15 @@
               <div class="syn-card">
                 <div class="syn-sym kw-py">try / except</div>
                 <div class="syn-name">Error Handling</div>
-                <div class="syn-desc">Catches errors so the program doesn't crash. <span class="syn-ex">try: ... except
+                <div class="syn-desc">Catches errors so the program doesn't crash. <span class="syn-ex">try: ...
+                    except
                     ValueError:</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">lambda</div>
                 <div class="syn-name">Anonymous Fn</div>
-                <div class="syn-desc">One-line inline function. <span class="syn-ex">f = lambda x: x * 2</span></div>
+                <div class="syn-desc">One-line inline function. <span class="syn-ex">f = lambda x: x * 2</span>
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-py">global</div>
@@ -1658,25 +1687,29 @@
               <div class="syn-card">
                 <div class="syn-sym kw-java">boolean</div>
                 <div class="syn-name">True/False</div>
-                <div class="syn-desc">Holds true or false. Used in conditions. <span class="syn-ex">boolean flag =
+                <div class="syn-desc">Holds true or false. Used in conditions. <span class="syn-ex">boolean flag
+                    =
                     true;</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-java">void</div>
                 <div class="syn-name">No Return</div>
-                <div class="syn-desc">Method return type when nothing is returned. <span class="syn-ex">void printHi()
+                <div class="syn-desc">Method return type when nothing is returned. <span class="syn-ex">void
+                    printHi()
                     {...}</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-java">public / private</div>
                 <div class="syn-name">Access Modifier</div>
-                <div class="syn-desc">Controls who can access a method or variable. public = anyone, private = only this
+                <div class="syn-desc">Controls who can access a method or variable. public = anyone, private =
+                  only this
                   class.</div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-java">static</div>
                 <div class="syn-name">Class-level</div>
-                <div class="syn-desc">Belongs to the class, not an instance. <span class="syn-ex">public static void
+                <div class="syn-desc">Belongs to the class, not an instance. <span class="syn-ex">public static
+                    void
                     main</span></div>
               </div>
               <div class="syn-card">
@@ -1688,7 +1721,8 @@
               <div class="syn-card">
                 <div class="syn-sym kw-java">new</div>
                 <div class="syn-name">Create Object</div>
-                <div class="syn-desc">Creates an instance of a class. <span class="syn-ex">Dog d = new Dog();</span>
+                <div class="syn-desc">Creates an instance of a class. <span class="syn-ex">Dog d = new
+                    Dog();</span>
                 </div>
               </div>
               <div class="syn-card">
@@ -1706,7 +1740,8 @@
               <div class="syn-card">
                 <div class="syn-sym kw-java">if / else / switch</div>
                 <div class="syn-name">Control Flow</div>
-                <div class="syn-desc">Conditional branching. switch tests one variable against multiple cases.</div>
+                <div class="syn-desc">Conditional branching. switch tests one variable against multiple cases.
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-java">for / while</div>
@@ -1723,13 +1758,15 @@
               <div class="syn-card">
                 <div class="syn-sym kw-java">final</div>
                 <div class="syn-name">Constant</div>
-                <div class="syn-desc">Value cannot be changed after assignment. <span class="syn-ex">final int MAX =
+                <div class="syn-desc">Value cannot be changed after assignment. <span class="syn-ex">final int
+                    MAX =
                     100;</span></div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-java">extends / implements</div>
                 <div class="syn-name">Inheritance</div>
-                <div class="syn-desc">extends: inherit from a class. implements: fulfill an interface contract.</div>
+                <div class="syn-desc">extends: inherit from a class. implements: fulfill an interface contract.
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-java">return</div>
@@ -1746,7 +1783,8 @@
               <div class="syn-card">
                 <div class="syn-sym kw-c">#include</div>
                 <div class="syn-name">Header Include</div>
-                <div class="syn-desc">Loads a library. <span class="syn-ex">#include &lt;stdio.h&gt;</span> gives access
+                <div class="syn-desc">Loads a library. <span class="syn-ex">#include &lt;stdio.h&gt;</span>
+                  gives access
                   to printf/scanf.</div>
               </div>
               <div class="syn-card">
@@ -1758,13 +1796,15 @@
               <div class="syn-card">
                 <div class="syn-sym kw-c">printf()</div>
                 <div class="syn-name">Print Output</div>
-                <div class="syn-desc">Prints formatted text. <span class="syn-ex">printf("Hi %s\n", name);</span> — %s
+                <div class="syn-desc">Prints formatted text. <span class="syn-ex">printf("Hi %s\n",
+                    name);</span> — %s
                   inserts a string.</div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-c">scanf()</div>
                 <div class="syn-name">Read Input</div>
-                <div class="syn-desc">Reads user input. <span class="syn-ex">scanf("%d", &amp;x);</span> — &amp; passes
+                <div class="syn-desc">Reads user input. <span class="syn-ex">scanf("%d", &amp;x);</span> — &amp;
+                  passes
                   the memory address.</div>
               </div>
               <div class="syn-card">
@@ -1780,13 +1820,15 @@
               <div class="syn-card">
                 <div class="syn-sym kw-c">* &amp;</div>
                 <div class="syn-name">Pointer / Address</div>
-                <div class="syn-desc">* declares/dereferences a pointer. &amp; gets the memory address of a variable.
+                <div class="syn-desc">* declares/dereferences a pointer. &amp; gets the memory address of a
+                  variable.
                 </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-c">malloc / free</div>
                 <div class="syn-name">Memory</div>
-                <div class="syn-desc">malloc() allocates heap memory. free() releases it. Always pair them.</div>
+                <div class="syn-desc">malloc() allocates heap memory. free() releases it. Always pair them.
+                </div>
               </div>
               <div class="syn-card">
                 <div class="syn-sym kw-c">struct</div>
@@ -1816,7 +1858,8 @@
               <div class="syn-card">
                 <div class="syn-sym kw-c">for / while / do-while</div>
                 <div class="syn-name">Loops</div>
-                <div class="syn-desc">do-while runs at least once. <span class="syn-ex">do { ... } while(cond);</span>
+                <div class="syn-desc">do-while runs at least once. <span class="syn-ex">do { ... }
+                    while(cond);</span>
                 </div>
               </div>
               <div class="syn-card">
@@ -1827,7 +1870,8 @@
               <div class="syn-card">
                 <div class="syn-sym kw-c">NULL</div>
                 <div class="syn-name">Null Pointer</div>
-                <div class="syn-desc">A pointer that points to nothing. Always check for NULL after malloc.</div>
+                <div class="syn-desc">A pointer that points to nothing. Always check for NULL after malloc.
+                </div>
               </div>
             </div>
           </div>
@@ -1872,7 +1916,8 @@
                   <div class="proposal-term-bar"><span></span><span></span><span></span> TERMINAL</div>
                   <div class="proposal-term-body">Hello, World!</div>
                 </div>
-                <div class="proposal-concept">💡 <strong>print()</strong> outputs anything inside the quotes directly to
+                <div class="proposal-concept">💡 <strong>print()</strong> outputs anything inside the quotes
+                  directly to
                   the screen.</div>
               </div>
             </div>
@@ -1939,10 +1984,12 @@
                 <div class="proposal-col-label">▸ Output visualized</div>
                 <div class="proposal-terminal">
                   <div class="proposal-term-bar"><span></span><span></span><span></span> TERMINAL</div>
-                  <div class="proposal-term-body">Big<div class="term-note">← because x=10 is greater than 5</div>
+                  <div class="proposal-term-body">Big<div class="term-note">← because x=10 is greater than 5
+                    </div>
                   </div>
                 </div>
-                <div class="proposal-concept">💡 <strong>if</strong> checks a condition. The indented line only runs if
+                <div class="proposal-concept">💡 <strong>if</strong> checks a condition. The indented line only
+                  runs if
                   it's true. <strong>else</strong> catches everything else.</div>
               </div>
             </div>
@@ -1970,10 +2017,12 @@
                 <div class="proposal-col-label">▸ Output visualized</div>
                 <div class="proposal-terminal">
                   <div class="proposal-term-bar"><span></span><span></span><span></span> TERMINAL</div>
-                  <div class="proposal-term-body">0<br>1<br>2<div class="term-note">← loops 3 times, i starts at 0</div>
+                  <div class="proposal-term-body">0<br>1<br>2<div class="term-note">← loops 3 times, i starts at
+                      0</div>
                   </div>
                 </div>
-                <div class="proposal-concept">💡 <strong>range(3)</strong> produces 0, 1, 2 — not 1, 2, 3. Counting
+                <div class="proposal-concept">💡 <strong>range(3)</strong> produces 0, 1, 2 — not 1, 2, 3.
+                  Counting
                   always starts at 0 in programming.</div>
               </div>
             </div>
@@ -1994,8 +2043,8 @@
                       class="pln-code"> </span><span class="pln-code pln-fn">greet</span><span
                       class="pln-code">(name):</span></div>
                   <div class="proposal-line indent"><span class="pln-num">2</span><span class="pln-code kw-py">
-                      return</span><span class="pln-code"> </span><span class="pln-code pln-str">"Hello, "</span><span
-                      class="pln-code"> + name</span></div>
+                      return</span><span class="pln-code"> </span><span class="pln-code pln-str">"Hello,
+                      "</span><span class="pln-code"> + name</span></div>
                   <div class="proposal-line"><span class="pln-num">3</span><span
                       class="pln-code kw-py">print</span><span class="pln-code">(</span><span
                       class="pln-code pln-fn">greet</span><span class="pln-code">(</span><span
@@ -2006,7 +2055,8 @@
                 <div class="proposal-col-label">▸ Output visualized</div>
                 <div class="proposal-terminal">
                   <div class="proposal-term-bar"><span></span><span></span><span></span> TERMINAL</div>
-                  <div class="proposal-term-body">Hello, Riya<div class="term-note">← greet("Riya") returns "Hello,
+                  <div class="proposal-term-body">Hello, Riya<div class="term-note">← greet("Riya") returns
+                      "Hello,
                       Riya"</div>
                   </div>
                 </div>
@@ -2045,11 +2095,13 @@
                 <div class="proposal-col-label">▸ Output visualized</div>
                 <div class="proposal-terminal">
                   <div class="proposal-term-bar"><span></span><span></span><span></span> TERMINAL</div>
-                  <div class="proposal-term-body">2<br>4<br>6<div class="term-note">← each number doubled: 1×2, 2×2, 3×2
+                  <div class="proposal-term-body">2<br>4<br>6<div class="term-note">← each number doubled: 1×2,
+                      2×2, 3×2
                     </div>
                   </div>
                 </div>
-                <div class="proposal-concept">💡 <strong>[ ]</strong> creates a list. The for loop visits each item one
+                <div class="proposal-concept">💡 <strong>[ ]</strong> creates a list. The for loop visits each
+                  item one
                   by one. <strong>n * 2</strong> doubles each value.</div>
               </div>
             </div>
@@ -2065,68 +2117,73 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer-note">Approve → levels go to backend · Peek tab shows outputs · Home screen gets Syntax
+      <div class="modal-footer-note">Approve → levels go to backend · Peek tab shows outputs · Home screen gets
+        Syntax
         Meaning</div>
     </div>
   </div>
 
   <!-- LEADERBOARD MODAL -->
   <div class="modal-overlay" id="lbModal">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title">⬡ Leaderboard</div>
-        <div class="modal-close" onclick="closeLB()">✕</div>
+    <div class="modal lb-protocol-modal">
+      <div class="modal-header lb-protocol-header">
+        <div class="lb-protocol-title">
+          <span class="lb-icon">⬡</span>
+          RANKING DATA-STREAM: THE CODEDEFENDER PROTOCOL
+        </div>
+        <div class="lb-protocol-actions">
+          <button class="lb-action-btn" onclick="switchLBTab('global')">⟳ REFRESH</button>
+          <button class="lb-action-btn" onclick="scrollToMe()">⦿ FIND ME</button>
+          <div class="modal-close lb-protocol-close" onclick="closeLB()">✕</div>
+        </div>
       </div>
-      <div class="modal-tabs">
-        <div class="modal-tab active" id="lbTabGlobal" onclick="switchLBTab('global')">Global Rankings</div>
-        <div class="modal-tab" id="lbTabSpecific" onclick="switchLBTab('specific')">Specific Rankings</div>
-      </div>
-      <div class="modal-body">
-        <!-- Player's Global Rank (Always Visible) -->
-        <div id="lbMyRank" class="lb-my-rank">
-          <div class="lb-my-rank-label">YOUR GLOBAL POSITION</div>
-          <div class="lb-my-rank-val" id="lbMyRankVal">FETCHING...</div>
+
+      <div class="modal-body lb-protocol-body">
+        <div class="lb-protocol-filters">
+          <div class="lb-filter-group">
+            <span class="lb-filter-lbl">MODE</span>
+            <div class="lb-filter-row">
+              <button class="lb-filter-btn active" data-type="mode" data-val="classic"
+                onclick="setLBFilter('mode', 'classic')">CLASSIC</button>
+              <button class="lb-filter-btn" data-type="mode" data-val="builder"
+                onclick="setLBFilter('mode', 'builder')">BUILDER</button>
+            </div>
+          </div>
+          <div class="lb-filter-group">
+            <span class="lb-filter-lbl">DIFFICULTY</span>
+            <div class="lb-filter-row">
+              <button class="lb-filter-btn active" data-type="diff" data-val="normal"
+                onclick="setLBFilter('diff', 'normal')">NORMAL</button>
+              <button class="lb-filter-btn" data-type="diff" data-val="pro"
+                onclick="setLBFilter('diff', 'pro')">PRO</button>
+            </div>
+          </div>
+          <div class="lb-filter-group">
+            <span class="lb-filter-lbl">LANGUAGE</span>
+            <div class="lb-filter-row">
+              <button class="lb-filter-btn active" data-type="lang" data-val="all"
+                onclick="setLBFilter('lang', 'all')">ALL</button>
+              <button class="lb-filter-btn" data-type="lang" data-val="python"
+                onclick="setLBFilter('lang', 'python')">PYTHON</button>
+              <button class="lb-filter-btn" data-type="lang" data-val="java"
+                onclick="setLBFilter('lang', 'java')">JAVA</button>
+              <button class="lb-filter-btn" data-type="lang" data-val="c"
+                onclick="setLBFilter('lang', 'c')">C-LANG</button>
+            </div>
+          </div>
         </div>
 
-        <!-- Global Rankings panel -->
-        <div id="lbPanelGlobal" class="lb-panel active">
-          <div class="lb-grid" id="lbGridGlobal">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-
-        <!-- Specific Rankings panel -->
-        <div id="lbPanelSpecific" class="lb-panel">
-          <div class="lb-filters">
-            <div class="lb-filter-group">
-              <label>MODE</label>
-              <div class="lb-filter-options" id="lbFilterMode">
-                <button class="lb-filter-btn active" onclick="setLBFilter('mode', 'classic')">CLASSIC</button>
-                <button class="lb-filter-btn" onclick="setLBFilter('mode', 'builder')">BUILDER</button>
-              </div>
-            </div>
-            <div class="lb-filter-group">
-              <label>DIFFICULTY</label>
-              <div class="lb-filter-options" id="lbFilterDiff">
-                <button class="lb-filter-btn active" onclick="setLBFilter('diff', 'normal')">NORMAL</button>
-                <button class="lb-filter-btn" onclick="setLBFilter('diff', 'pro')">PRO</button>
-              </div>
-            </div>
-            <div class="lb-filter-group">
-              <label>LANGUAGE</label>
-              <select id="lbFilterLang" class="lb-filter-select" onchange="setLBFilter('lang', this.value)">
-                <option value="python">PYTHON</option>
-                <option value="java">JAVA</option>
-                <option value="c">C-LANG</option>
-              </select>
-            </div>
-          </div>
-          <div class="lb-grid" id="lbGridSpecific">
-            <!-- Populated dynamically -->
-          </div>
+        <div class="lb-data-stream" id="lbGridGlobal">
+          <!-- Rows populated dynamically by game.js -->
         </div>
       </div>
-      <div class="modal-footer-note">Scores update after each completed session</div>
+
+      <div class="lb-protocol-footer">
+        <div class="lb-footer-item">
+          <span class="lb-footer-lbl">YOUR RANK:</span>
+          <span class="lb-footer-val" id="lbFooterRank">---</span>
+        </div>
+      </div>
     </div>
   </div>
 

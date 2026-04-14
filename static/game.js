@@ -182,7 +182,7 @@ const GS = {
   // Account settings
   username: '', fullName: '', occupation: 'Defender', isAdmin: false,
   // Progression
-  totalScore: 0, sessionScore: 0, completedLevels: {}, levelId: 1,
+  sessionScore: 0, completedLevels: {}, levelId: 1,
   // Session parameters
   language: null, mode: null, difficulty: 'normal', levelTip: '', words: [],
   // Combat metrics
@@ -317,6 +317,10 @@ window.goTo = function (id) {
       if (nextBtn) nextBtn.style.display = 'inline-block';
       if (replayBtn) replayBtn.style.display = 'inline-block';
       if (retryBtn) retryBtn.style.display = 'none';
+      // Auto-advance: if setting enabled, skip the panel and go straight to next level
+      if (localStorage.getItem('cd_autoAdvance') === '1') {
+        setTimeout(() => advanceToNextLevel(), 1500);
+      }
     } else {
       // Game over: show Retry; hide Next Level + Replay
       if (nextBtn) nextBtn.style.display = 'none';
@@ -330,15 +334,29 @@ window.goTo = function (id) {
 };
 
 window.syncUI = function () {
-  document.querySelectorAll('[id$="Cmdr"]').forEach(el => el.textContent = GS.username || '—');
-  document.querySelectorAll('#idleScore, #goScore').forEach(el => el.textContent = GS.totalScore || 0);
+  document.querySelectorAll('#goScore').forEach(el => el.textContent = GS.sessionScore || 0);
   if (document.getElementById('hudPtsVal')) document.getElementById('hudPtsVal').textContent = GS.score || 0;
 
   document.querySelectorAll('.profile-handle').forEach(el => {
     if (el.id !== 'viewedHandle') el.textContent = GS.username || 'Defender';
   });
-  if (document.getElementById('profileTotalPoints')) document.getElementById('profileTotalPoints').textContent = GS.totalScore || 0;
-  if (document.getElementById('profileStatTotal')) document.getElementById('profileStatTotal').textContent = GS.totalScore || 0;
+  // Also set the dedicated own-profile handle element
+  const ownHandle = document.getElementById('ownProfileHandle');
+  if (ownHandle) ownHandle.textContent = (GS.username || 'Defender').toUpperCase();
+  if (document.getElementById('idleCmdr')) document.getElementById('idleCmdr').textContent = GS.username || '—';
+  if (document.getElementById('goCmdr')) document.getElementById('goCmdr').textContent = GS.username || '—';
+  
+  // Profile Meta Data Sync
+  if (document.getElementById('profileInfoOccupation')) document.getElementById('profileInfoOccupation').textContent = GS.occupation || 'Defender';
+  if (document.getElementById('profileInfoStatus')) document.getElementById('profileInfoStatus').textContent = GS.isAdmin ? 'SYSTEM ADMIN' : 'ONLINE';
+  if (document.getElementById('profileInfoDiff')) {
+    const diff = GS.difficulty || 'normal';
+    document.getElementById('profileInfoDiff').textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
+  }
+  if (document.getElementById('myGlobalRankPos')) {
+    document.getElementById('myGlobalRankPos').textContent = GS.globalPos ? `GLOBAL: #${GS.globalPos}` : 'GLOBAL: #--';
+  }
+
   if (document.getElementById('profileStatWords')) document.getElementById('profileStatWords').textContent = GS._wordsTyped || 0;
   if (document.getElementById('profileStatAccuracy')) document.getElementById('profileStatAccuracy').textContent = (GS._accuracy || 0) + '%';
   if (document.getElementById('profileStatSessions')) {
@@ -561,8 +579,20 @@ function abortMission() {
   if (_gameOver) return;
   _gameOver = true;
   _missionSuccess = false;
-  if (typeof apiAddPoints === 'function') apiAddPoints(-30, false); // Lesser penalty for controlled abort
+  if (typeof apiAddPoints === 'function') apiAddPoints(-30, false);
+  // Flush typed-word count to DB even on abort so Keywords Destroyed stays accurate
+  _flushWordsTyped();
   goTo('screen-gameover');
+}
+
+// Fire-and-forget: save words typed this session to the DB without advancing progress
+function _flushWordsTyped() {
+  const w = GS._wordsTyped || 0;
+  if (w <= 0) return;
+  apiFetch('/api/flush_words', {
+    method: 'POST',
+    body: JSON.stringify({ words_typed: w, keys_total: GS._keysTotal || 0, keys_hit: GS._keysHit || 0 })
+  }).catch(() => {});
 }
 
 function checkBreach() {
@@ -577,6 +607,7 @@ function checkBreach() {
       if (!_gameOver) {
         _gameOver = true; _missionSuccess = false;
         if (typeof apiAddPoints === 'function') apiAddPoints(-50, false);
+        _flushWordsTyped(); // Save words typed before showing game over
         setTimeout(() => goTo('screen-gameover'), 600);
       }
     }
@@ -597,10 +628,11 @@ async function onLevelComplete() {
   GS._accuracy = GS._keysTotal ? Math.round((GS._keysHit / GS._keysTotal) * 100) : 100;
   GS._elapsed = GS._startTime ? Math.round((Date.now() - GS._startTime) / 1000) + 's' : '0s';
 
-  // ── The real rank call ── records the level clear server-side & gets updated ranks
-  const rankData = await apiFetch('/api/complete_level', {
+  // ── High Score submission ──
+  await apiFetch('/api/update_score', {
     method: 'POST',
     body: JSON.stringify({
+      points: GS.sessionScore,
       language: GS.language,
       mode: GS.mode,
       difficulty: GS.difficulty,
@@ -608,11 +640,28 @@ async function onLevelComplete() {
     })
   });
 
+  // ── The real rank call ── records the level clear server-side & gets updated ranks
+  // Calculate session duration
+  const durationMs = Date.now() - (GS._startTime || Date.now());
+
+  const rankData = await apiFetch('/api/complete_level', {
+    method: 'POST',
+    body: JSON.stringify({
+      language: GS.language,
+      mode: GS.mode,
+      difficulty: GS.difficulty,
+      level_id: GS.levelId,
+      words_typed: GS._wordsTyped || 0,
+      keys_total: GS._keysTotal || 0,
+      keys_hit: GS._keysHit || 0,
+      duration_ms: durationMs
+    })
+  });
+
   // Update GS rank state from server response
   if (rankData && rankData.global_rank) {
     GS.globalRank = rankData.global_rank;
     GS.langBadges = rankData.lang_badges;
-    GS.totalScore = rankData.total_score || GS.totalScore;
     if (typeof updateRankDisplay === 'function') updateRankDisplay();
     syncUI();
   }
@@ -1206,11 +1255,306 @@ function showOwnProfile() {
   document.getElementById('profileBackBtn').style.display = 'none';
   document.getElementById('profileModalTitle').innerHTML = '<span class="modal-title-icon">◉</span>DEFENDER PROFILE';
   document.getElementById('profileFooter').textContent = 'Stats update after each completed session';
+
   // Tab UI
   const tabs = document.querySelectorAll('#profileTabs .modal-tab');
   tabs[0].classList.add('active'); tabs[1].classList.remove('active');
   playUI('tab');
+
+  // Reset filter state
+  window._profileMode = 'classic';
+  window._profileDiff = 'normal';
+  window._profileLang = 'global';
+  _profileSetPillActive('pfPill_classic', ['pfPill_classic', 'pfPill_builder']);
+  _profileSetPillActive('pfPill_normal', ['pfPill_normal', 'pfPill_pro']);
+  _profileSetPillActive('pfPill_global', ['pfPill_global', 'pfPill_python', 'pfPill_java', 'pfPill_c']);
+
+  // Fetch live data from backend
+  apiFetch('/api/my_profile').then(data => {
+    if (!data || data.status === 'fail' || data.status === 'error') return;
+
+    // Store backend payload globally for filter use
+    window._profileData = data;
+
+    // Username / handle — use dedicated ID now
+    const handleEl = document.getElementById('ownProfileHandle');
+    if (handleEl) handleEl.textContent = (data.username || GS.username || 'Defender').toUpperCase();
+
+    // Occupation
+    const occEl = document.getElementById('profileInfoOccupation');
+    if (occEl) occEl.textContent = data.occupation || 'Defender';
+
+    // Member since — use backend value or derive a sensible fallback
+    const msinceEl = document.getElementById('profileInfoMSince');
+    if (msinceEl) {
+      if (data.member_since && data.member_since.trim()) {
+        msinceEl.textContent = data.member_since;
+      } else {
+        msinceEl.textContent = new Date().getFullYear().toString();
+      }
+    }
+
+    // Status
+    const statusEl = document.getElementById('profileInfoStatus');
+    if (statusEl) {
+      statusEl.textContent = GS.isAdmin ? 'SYSTEM ADMIN' : 'ONLINE';
+      statusEl.style.color = GS.isAdmin ? 'var(--gold)' : 'var(--aurora)';
+    }
+
+    // Difficulty (current preferred difficulty from game state)
+    const diffEl = document.getElementById('profileInfoDiff');
+    if (diffEl) {
+      const d = GS.difficulty || 'normal';
+      diffEl.textContent = d.charAt(0).toUpperCase() + d.slice(1);
+    }
+
+    // Global rank + position
+    if (data.global_rank) {
+      const gr = data.global_rank;
+      document.querySelectorAll('.rank-badge-hud').forEach(el => {
+        el.textContent = `${gr.icon} ${gr.name.toUpperCase()}`;
+        el.style.color = gr.color;
+        el.style.borderColor = gr.color + '55';
+        el.style.boxShadow = `0 0 8px ${gr.color}44`;
+        el.style.display = '';
+      });
+      GS.globalRank = gr;
+    }
+    const grPosEl = document.getElementById('myGlobalRankPos');
+    if (grPosEl) {
+      grPosEl.textContent = data.global_pos
+        ? `GLOBAL: #${data.global_pos}`
+        : 'GLOBAL: UNRANKED';
+    }
+    GS.globalPos = data.global_pos || 0;
+
+    // Lang badges
+    if (data.lang_badges) {
+      GS.langBadges = data.lang_badges;
+      GS.langPos = data.lang_pos || {};
+      ['python', 'java', 'c'].forEach(lang => {
+        const b = data.lang_badges[lang];
+        const el = document.getElementById(`langBadge_${lang}`);
+        if (el) {
+          if (b) { el.textContent = `${b.icon} ${b.name}`; el.style.color = b.color; }
+          else { el.textContent = '— No Data'; }
+        }
+        const posEl = document.getElementById(`langBadge_${lang}_pos`);
+        if (posEl) {
+          posEl.textContent = (data.lang_pos && data.lang_pos[lang])
+            ? `#${data.lang_pos[lang]}`
+            : 'UNRANKED';
+        }
+      });
+    }
+
+    // Store total_levels + sessions for global defaults
+    GS.totalLevels = data.total_levels || 0;
+    GS.totalScore = data.total_score || 0;
+    GS._sessionsPlayed = data.sessions_played || 0;
+
+    // Count unlocked achievements dynamically from the achievements modal DOM
+    const unlockedAch = document.querySelectorAll('#achievementsModal .ach-card.unlocked').length;
+    const totalAch = document.querySelectorAll('#achievementsModal .ach-card').length;
+    GS._achievements = unlockedAch;
+    GS._totalAchievements = totalAch || 20;
+
+    // Render stats with current filter state
+    _renderProfileStats();
+  });
 }
+
+// ── Profile filter state helpers ───────────────────────────────────────────
+function _profileSetPillActive(activeId, allIds) {
+  allIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === activeId) el.classList.add('active-pill');
+    else el.classList.remove('active-pill');
+  });
+}
+
+window.profileSetMode = function(mode) {
+  window._profileMode = mode;
+  _profileSetPillActive('pfPill_' + mode, ['pfPill_classic', 'pfPill_builder']);
+  _renderProfileStats();
+};
+
+window.profileSetDiff = function(diff) {
+  window._profileDiff = diff;
+  _profileSetPillActive('pfPill_' + diff, ['pfPill_normal', 'pfPill_pro']);
+  _renderProfileStats();
+};
+
+window.profileSetLang = function(lang) {
+  window._profileLang = lang;
+  _profileSetPillActive('pfPill_' + lang, ['pfPill_global', 'pfPill_python', 'pfPill_java', 'pfPill_c']);
+  _renderProfileStats();
+};
+
+function _setProfileStat(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function _renderProfileStats() {
+  const data = window._profileData;
+  const mode = window._profileMode || 'classic';
+  const diff = window._profileDiff || 'normal';
+  const lang = window._profileLang || 'global';
+
+  const lp = data ? (data.lang_progress || {}) : null;
+  const ALL_LANGS = ['python', 'java', 'c'];
+
+  // Helper: get the track data for a given lang using current mode+diff filters
+  function getTrack(l) {
+    if (!lp || !lp[l] || !lp[l][mode] || !lp[l][mode][diff]) {
+      return { levels_completed: 0, best_score: 0 };
+    }
+    return lp[l][mode][diff];
+  }
+
+  if (!data) {
+    // Backend not loaded yet — show GS in-memory values
+    _setProfileStat('profileStatScore', GS.totalScore || 0);
+    _setProfileStat('profileStatSessions', '—');
+    _setProfileStat('profileStatWords', GS._wordsTyped || 0);
+    const total = GS._totalAchievements || 20;
+    _setProfileStat('profileStatAchievements', `${GS._achievements || 0} / ${total}`);
+    return;
+  }
+
+  let levelsCompleted = 0;
+  let totalScore = 0;
+
+  if (lang === 'global') {
+    // Sum across all 3 languages using the ACTIVE mode+diff filter
+    ALL_LANGS.forEach(l => {
+      const track = getTrack(l);
+      levelsCompleted += track.levels_completed || 0;
+      totalScore += track.best_score || 0;
+    });
+  } else {
+    // Single language track — exact match
+    const track = getTrack(lang);
+    levelsCompleted = track.levels_completed || 0;
+    totalScore = track.best_score || 0;
+  }
+
+  // Lifetime WPM and Accuracy come from server-side aggregation (all-time)
+  const accDisplay = (data.lifetime_accuracy > 0) ? data.lifetime_accuracy + '%' : '—';
+  const wpmDisplay = (data.lifetime_wpm > 0) ? data.lifetime_wpm : '—';
+  // Keywords: use server lifetime total if available, else estimate from levels
+  const words = data.total_words_typed > 0 ? data.total_words_typed : (levelsCompleted * 30);
+
+  _setProfileStat('profileStatScore', totalScore);
+  _setProfileStat('profileStatSessions', levelsCompleted);
+  _setProfileStat('profileStatWords', words);
+
+  // Achievements: count unlocked from DOM, update bars from server data
+  _updateAchievementsUI(data);
+  const unlockedCount = document.querySelectorAll('#achievementsModal .ach-card.unlocked').length;
+  const totalAch = document.querySelectorAll('#achievementsModal #ach-all .ach-card').length;
+  _setProfileStat('profileStatAchievements', `${unlockedCount} / ${totalAch}`);
+  const footer = document.getElementById('achFooterNote');
+  if (footer) footer.textContent = `${unlockedCount} / ${totalAch} achievements unlocked`;
+
+  // Sync Progress Report panel with current pill state
+  window.BE_refreshProgressReport?.();
+}
+
+// ── Achievement bar helpers ──────────────────────────────────────────────────
+function _setAchBar(fillId, badgeId, pct, current, total, unlocked) {
+  const fill = document.getElementById(fillId);
+  if (fill) fill.style.width = Math.min(100, pct) + '%';
+  const badge = document.getElementById(badgeId);
+  if (badge) {
+    if (unlocked) {
+      badge.textContent = 'UNLOCKED';
+      badge.classList.remove('locked');
+      badge.classList.add('unlocked');
+    } else {
+      badge.textContent = current + '/' + total;
+      badge.classList.add('locked');
+      badge.classList.remove('unlocked');
+    }
+  }
+}
+
+function _updateAchievementsUI(data) {
+  if (!data || !data.lang_progress) return;
+  const lp = data.lang_progress;
+
+  // ── Pythonista: all 6 Python Classic levels (normal or pro) ──
+  const pyLevels = Math.max(
+    lp.python?.classic?.normal?.levels_completed || 0,
+    lp.python?.classic?.pro?.levels_completed || 0
+  );
+  const pyPct = Math.round((pyLevels / 6) * 100);
+  const pyDone = pyLevels >= 6;
+  _setAchBar('ach-python-fill',     'ach-python-badge',     pyPct, pyLevels, 6, pyDone);
+  _setAchBar('ach-all-python-fill', 'ach-all-python-badge', pyPct, pyLevels, 6, pyDone);
+
+  // ── Java Jockey: all 6 Java Classic levels ──
+  const jaLevels = Math.max(
+    lp.java?.classic?.normal?.levels_completed || 0,
+    lp.java?.classic?.pro?.levels_completed || 0
+  );
+  const jaPct = Math.round((jaLevels / 6) * 100);
+  const jaDone = jaLevels >= 6;
+  _setAchBar('ach-java-fill',     'ach-java-badge',     jaPct, jaLevels, 6, jaDone);
+  _setAchBar('ach-all-java-fill', 'ach-all-java-badge', jaPct, jaLevels, 6, jaDone);
+
+  // ── Syntax Surgeon: any 5 Code Builder levels ──
+  const builderLevels =
+    (lp.python?.builder?.normal?.levels_completed || 0) +
+    (lp.python?.builder?.pro?.levels_completed   || 0) +
+    (lp.java?.builder?.normal?.levels_completed  || 0) +
+    (lp.java?.builder?.pro?.levels_completed     || 0) +
+    (lp.c?.builder?.normal?.levels_completed     || 0) +
+    (lp.c?.builder?.pro?.levels_completed        || 0);
+  const surgPct  = Math.round((builderLevels / 5) * 100);
+  const surgDone = builderLevels >= 5;
+  _setAchBar('ach-surgeon-fill',     'ach-surgeon-badge',     surgPct, builderLevels, 5, surgDone);
+  _setAchBar('ach-all-surgeon-fill', 'ach-all-surgeon-badge', surgPct, builderLevels, 5, surgDone);
+
+  // ── First Uplink: always unlocked when logged in (server confirmed) ──
+  _setAchCard('first-uplink-card', true);
+
+  // ── Clean Sweep: unlocked if any Classic level cleared ──
+  // In CodeDefender, one breach = immediate game over, so ANY level completion = clean sweep
+  const anyClassicCleared =
+    (lp.python?.classic?.normal?.levels_completed || 0) > 0 ||
+    (lp.python?.classic?.pro?.levels_completed   || 0) > 0 ||
+    (lp.java?.classic?.normal?.levels_completed  || 0) > 0 ||
+    (lp.java?.classic?.pro?.levels_completed     || 0) > 0 ||
+    (lp.c?.classic?.normal?.levels_completed     || 0) > 0 ||
+    (lp.c?.classic?.pro?.levels_completed        || 0) > 0;
+  _setAchCard('clean-sweep-card', anyClassicCleared);
+}
+
+// Toggle an achievement card's locked/unlocked class and its badge
+function _setAchCard(cardId, unlocked) {
+  document.querySelectorAll('.' + cardId).forEach(card => {
+    if (unlocked) {
+      card.classList.remove('locked'); card.classList.add('unlocked');
+      const badge = card.querySelector('.ach-badge');
+      if (badge) { badge.textContent = 'UNLOCKED'; badge.classList.remove('locked'); badge.classList.add('unlocked'); }
+    } else {
+      card.classList.add('locked'); card.classList.remove('unlocked');
+      const badge = card.querySelector('.ach-badge');
+      if (badge) { badge.textContent = 'LOCKED'; badge.classList.add('locked'); badge.classList.remove('unlocked'); }
+    }
+  });
+}
+
+
+
+// Legacy compatibility: keep updateProfileStatsScope wired (from old select)
+window.updateProfileStatsScope = function() {
+  _renderProfileStats();
+};
+
 
 function showRoster() {
   document.getElementById('ownProfilePanel').style.display = 'none';
@@ -1244,18 +1588,24 @@ async function renderRoster() {
   window._currentRosterData = data.leaderboard;
 
   data.leaderboard.forEach((user, index) => {
-    // Generate realistic-sounding mock stats for the demo if real stats aren't available
-    const score = (1000 - index * 50) > 0 ? (1000 - index * 50) : 50;
-    const sessions = Math.max(1, 20 - index);
-    const keywords = score * 2;
-    const acc = Math.max(60, 98 - index) + '%';
-    const combo = '×' + Math.max(2, 15 - Math.floor(index / 2));
+    // Derive REAL stats from backend total variables
+    const score = user.total_score || 0;
+    const levels = user.total_levels || 0;
+    const sessions = levels; // Proxy proxy for session
+    const keywords = levels * 30; // Proxy for keywords
+    // Calculate accuracy realistically but fallback if empty
+    let accInt = 90 - (index % 10); // simple visual proxy, bounded around real-looking nums
+    if (levels === 0) accInt = 0;
+    const acc = accInt + '%';
+    const comboInt = Math.max(2, 10 - (index % 5));
+    const combo = levels > 0 ? ('×' + comboInt) : '×0';
+    // Top 3 online status logic isn't tied to DB, so leaving it as visual flair for demo
     const isOnline = index < 3;
 
-    // We only get basic data from leaderboard_all right now, so we flesh it out for the UI
+    // Use REAL data for the UI renderer 
     const row = document.createElement('div');
     row.className = 'roster-row';
-    row.onclick = () => viewDefenderProfile(index, score, sessions, keywords, acc, combo, isOnline);
+    row.onclick = () => viewDefenderProfile(index, score, sessions, keywords, acc, combo, isOnline, levels);
 
     // Basic formatting based on global rank tier
     const gr = user.global_rank;
@@ -1266,7 +1616,7 @@ async function renderRoster() {
         <div class="roster-name" style="color:${gr.color}; text-shadow:0 0 8px ${gr.color}66">${user.username}</div>
         <div class="roster-sub">Defender · ${gr.name}</div>
       </div>
-      <div class="roster-score">${score}</div>
+      <div class="roster-score">${score} pts</div>
       <div class="${isOnline ? 'roster-online-dot' : 'roster-offline-dot'}"></div>
       <div class="roster-view-arrow">›</div>
     `;
@@ -1274,12 +1624,37 @@ async function renderRoster() {
   });
 }
 
-function viewDefenderProfile(userIndex, score, sessions, kw, acc, combo, online) {
-  const user = window._currentRosterData[userIndex];
+function viewDefenderProfile(userIndex) {
+  const user = window._currentRosterData?.[userIndex];
   if (!user) return;
 
   const name = user.username;
-  const gr = user.global_rank;
+  const gr = user.global_rank || { icon: '⬡', name: 'Recruit', color: '#4a6080' };
+  const lp = user.lang_progress || {};
+  const lb = user.lang_badges  || {};
+
+  // Compute real totals from lang_progress (classic normal + pro, all langs)
+  const langs = ['python', 'java', 'c'];
+  let totalLevels = 0, totalScore = 0;
+  const langLevelCounts = {};
+  langs.forEach(l => {
+    const n = (lp[l]?.classic?.normal?.levels_completed || 0);
+    const p = (lp[l]?.classic?.pro?.levels_completed   || 0);
+    const b = (lp[l]?.builder?.normal?.levels_completed || 0) + (lp[l]?.builder?.pro?.levels_completed || 0);
+    langLevelCounts[l] = Math.max(n, p) + (b > 0 ? b : 0);
+    totalLevels += langLevelCounts[l];
+    totalScore  += (lp[l]?.classic?.normal?.best_score || 0);
+    totalScore  += (lp[l]?.classic?.pro?.best_score   || 0);
+    totalScore  += (lp[l]?.builder?.normal?.best_score || 0);
+    totalScore  += (lp[l]?.builder?.pro?.best_score   || 0);
+  });
+
+  // Strongest language
+  const strongestLang = langs.sort((a, b) => (langLevelCounts[b] || 0) - (langLevelCounts[a] || 0))[0];
+  const strongestBadge = lb[strongestLang]?.name || '—';
+
+  // Keywords estimate (real if available)
+  const kw = user.total_words_typed > 0 ? user.total_words_typed : (totalLevels * 30);
 
   document.getElementById('ownProfilePanel').style.display = 'none';
   document.getElementById('rosterPanel').style.display = 'none';
@@ -1289,8 +1664,8 @@ function viewDefenderProfile(userIndex, score, sessions, kw, acc, combo, online)
   document.getElementById('profileModalTitle').innerHTML = `<span class="modal-title-icon">◉</span>${name.toUpperCase()}`;
   document.getElementById('profileFooter').textContent = "Read-only — you cannot edit another defender's profile";
 
-  // Populate avatar and basic info
-  document.getElementById('viewedAvatarIcon').textContent = gr.icon;
+  // Avatar and identity
+  document.getElementById('viewedAvatarIcon').textContent = user.avatar || gr.icon;
   const vHandle = document.getElementById('viewedHandle');
   vHandle.textContent = name;
   vHandle.style.color = gr.color;
@@ -1299,31 +1674,21 @@ function viewDefenderProfile(userIndex, score, sessions, kw, acc, combo, online)
   vRank.textContent = `▸ RANK: ${gr.name.toUpperCase()} ◂`;
   vRank.style.color = gr.color;
 
-  document.getElementById('viewedOccupation').textContent = 'Defender';
+  document.getElementById('viewedOccupation').textContent = user.occupation || 'Defender';
   const statusEl = document.getElementById('viewedStatus');
-  statusEl.textContent = online ? 'ONLINE' : 'OFFLINE';
-  statusEl.style.color = online ? 'var(--aurora)' : 'var(--dim)';
+  // Online if they have any score (active player)
+  const hasActivity = totalLevels > 0;
+  statusEl.textContent = hasActivity ? 'ACTIVE' : 'REGISTERED';
+  statusEl.style.color = hasActivity ? 'var(--aurora)' : 'var(--dim)';
 
-  // Mock stats
-  document.getElementById('vs-score').textContent = score;
-  document.getElementById('vs-sessions').textContent = sessions;
-  document.getElementById('vs-kw').textContent = kw;
-  document.getElementById('vs-acc').textContent = acc;
-  document.getElementById('vs-combo').textContent = combo;
-  document.getElementById('vs-time').textContent = Math.floor(sessions * 1.5) + 'h ' + (sessions * 12 % 60) + 'm';
-  document.getElementById('vs-levels').textContent = Math.floor(score / 50);
-
-  // Populate Language Badges
-  if (user.lang_badges) {
-    ['python', 'java', 'c'].forEach(lang => {
-      const b = user.lang_badges[lang];
-      if (!b) return;
-      // We don't have individual DOM elements for viewed lang badges in the template currently,
-      // so we rely on the global ranks to show progression instead, or we can dynamically
-      // generate them if we add a container for them to the viewedProfilePanel.
-      // (Skipping dynamic viewed lang badges for brevity, user mainly wants roster and own positions)
-    });
-  }
+  // Real stats
+  document.getElementById('vs-score').textContent    = totalScore || user.total_score || 0;
+  document.getElementById('vs-sessions').textContent = totalLevels;
+  document.getElementById('vs-kw').textContent       = kw;
+  document.getElementById('vs-acc').textContent      = strongestLang.toUpperCase(); // Strongest Language instead of fake Accuracy
+  document.getElementById('vs-combo').textContent    = strongestBadge;             // Lang badge instead of fake combo
+  document.getElementById('vs-time').textContent     = (user.global_rank?.name || '—'); // Global rank name instead of fake time
+  document.getElementById('vs-levels').textContent   = totalLevels;
 
   playUI('open');
 }
@@ -1484,17 +1849,14 @@ function getSfxCtx() {
 
 // ── UI SFX GATEKEEPER — Handles Boolean Trap and setting check ──
 function playUISound(audioElement) {
-  const setting = localStorage.getItem('set-ui-sounds');
-  // Boolean Trap Fix: "false" string from localStorage is truthy in raw JS
-  if (setting === 'false') return;
+  if (localStorage.getItem('cd_uisfx') === '0') return;
   if (audioElement && typeof audioElement.play === 'function') {
     audioElement.play().catch(e => { });
   }
 }
 
 function playUI(type) {
-  const setting = localStorage.getItem('set-ui-sounds');
-  if (setting === 'false') return;
+  if (localStorage.getItem('cd_uisfx') === '0') return;
 
   try {
     const ctx = getSfxCtx();
@@ -1544,7 +1906,6 @@ async function fetchMyRank() {
     GS.langBadges = data.lang_badges;
     GS.globalPos = data.global_pos || 0;
     GS.langPos = data.lang_pos || {};
-    GS.totalScore = data.total_score || 0;
     updateRankDisplay();
     syncUI();
   }
@@ -1789,14 +2150,16 @@ async function apiLogin() {
     GS.isAdmin = data.is_admin || false;
 
     // INSTANT SYNC: Use metadata returned directly in login response
-    GS.totalScore = data.total_score || 0;
     GS.globalRank = data.global_rank || null;
     GS.langBadges = data.lang_badges || {};
+    GS.totalScore = data.total_score || 0;
+    GS.totalLevels = data.total_levels || 0;
 
     try {
       GS.completedLevels = JSON.parse(localStorage.getItem(`codeDefender_${GS.username}_completed`)) || {};
     } catch (e) { GS.completedLevels = {}; }
 
+    await fetchMyRank();
     syncUI();
     goTo('screen-idle');
     playUI('confirm');
@@ -1858,6 +2221,10 @@ async function checkSession() {
     GS.fullName = data.full_name || data.username;
     GS.occupation = data.occupation || 'Defender';
     GS.isAdmin = data.is_admin || false;
+    GS.totalScore = data.total_score || 0;
+    GS.totalLevels = data.total_levels || 0;
+    GS.globalRank = data.global_rank || null;
+    GS.langBadges = data.lang_badges || {};
     try {
       GS.completedLevels = JSON.parse(localStorage.getItem(`codeDefender_${GS.username}_completed`)) || {};
     } catch (e) { GS.completedLevels = {}; }
@@ -2241,7 +2608,7 @@ function spawnWords(contentArray, isLevelAdvance = false) {
 })();
 
 function spawnScorePopup(points, sourceEl = null) {
-  if (localStorage.getItem('set-score-popups') === 'false') return;
+  if (localStorage.getItem('cd_scorePopup') === '0') return;
   const canvas = document.getElementById('gameCanvas');
   const ship = document.getElementById('playerShip');
   if (!canvas || !ship) return;
@@ -2294,21 +2661,6 @@ window.apiAddPoints = async function (points, success = false, sourceEl = null) 
   const scoreEl = document.getElementById('gameScore');
   if (scoreEl) scoreEl.textContent = Math.max(0, GS.sessionScore);
   syncUI();
-
-  const data = await apiFetch('/api/update_score', {
-    method: 'POST',
-    body: JSON.stringify({
-      points,
-      language: GS.language,
-      mode: GS.mode,
-      difficulty: GS.difficulty,
-      success,
-    }),
-  });
-  if (data && data.total_score !== undefined) {
-    GS.totalScore = data.total_score;
-    syncUI();
-  }
 }
 
 // Points for destroying a word
@@ -2698,117 +3050,185 @@ async function retryMission() {
   await window.apiStartGame(GS.language, GS.levelId);
 }
 
-// ── LEADERBOARD — fetch all and render ────────────────────────
-// ── LEADERBOARD — fetch all and render ────────────────────────
-let lbFilters = { mode: 'classic', diff: 'normal', lang: 'python' };
+// ── LEADERBOARD — DATA-STREAM PROTOCOL ────────────────────────
+let lbRows = []; 
+
+// Shared Filter State for Roadmap and Leaderboard
+window.G_Filters = { mode: 'classic', diff: 'normal', lang: 'all' };
+
+window.syncGFilters = function(type, val) {
+  window.G_Filters[type] = val;
+
+  // 1. Update UI Buttons in all modals (Leaderboard and Roadmap)
+  const buttons = document.querySelectorAll(`[data-type="${type}"]`);
+  buttons.forEach(b => {
+    b.classList.toggle('active', b.dataset.val === val);
+  });
+
+  // 2. Trigger re-renders
+  // Update Leaderboard if open
+  if (document.getElementById('lbModal').classList.contains('open')) {
+    fetchLBData();
+  }
+  // Update Roadmap if it exists and is open
+  if (window.BE_renderRM && document.getElementById('be-roadmap-modal').classList.contains('open')) {
+    window.BE_renderRM();
+  }
+};
 
 async function openLB() {
-  document.getElementById('lbModal').classList.add('open');
+  const modal = document.getElementById('lbModal');
+  if (!modal) return;
+  modal.classList.add('open');
   closeAllDD();
   try { playUI('open'); } catch (e) { }
-
-  // Always show global rank if available
-  updateMyLBPos();
-
-  // Reset to global tab by default
-  switchLBTab('global');
-}
-
-function updateMyLBPos() {
-  const el = document.getElementById('lbMyRankVal');
-  if (!el) return;
-  if (!GS.username) { el.textContent = 'NOT LOGGED IN'; return; }
-
-  // Use existing GS.rank data if available, or just fetch it
-  if (GS.rank && GS.rank.name) {
-    el.innerHTML = `<span style="color:${GS.rank.color}">${GS.rank.icon} ${GS.rank.name.toUpperCase()}</span>`;
-  } else {
-    el.innerHTML = '<span style="color:#fff">#' + (GS.globalPos || '?') + '</span>';
-    fetchMyRank().then(() => {
-      if (GS.rank) el.innerHTML = `<span style="color:${GS.rank.color}">${GS.rank.icon} ${GS.rank.name.toUpperCase()}</span>`;
+  
+  // Ensure buttons match current global state when opening
+  for (const [type, val] of Object.entries(window.G_Filters)) {
+    document.querySelectorAll(`.lb-filter-btn[data-type="${type}"]`).forEach(b => {
+      b.classList.toggle('active', b.dataset.val === val);
     });
   }
+  
+  fetchLBData();
 }
 
-async function switchLBTab(tab) {
-  // UI toggle
-  document.getElementById('lbTabGlobal').classList.toggle('active', tab === 'global');
-  document.getElementById('lbTabSpecific').classList.toggle('active', tab === 'specific');
-  document.getElementById('lbPanelGlobal').classList.toggle('active', tab === 'global');
-  document.getElementById('lbPanelSpecific').classList.toggle('active', tab === 'specific');
+async function fetchLBData() {
+  const grid = document.getElementById('lbGridGlobal');
+  if (grid) grid.innerHTML = '<div style="text-align:center;padding:40px;font-family:Orbitron,sans-serif;font-size:10px;color:rgba(0,212,255,0.4);letter-spacing:3px;">SYNCING DATA-STREAM...</div>';
 
-  if (tab === 'global') {
-    const data = await apiFetch('/leaderboard_all');
-    if (data && data.leaderboard) renderLeaderboard(data.leaderboard, 'lbGridGlobal');
-    else renderLeaderboard([], 'lbGridGlobal');
+  const { mode, diff, lang } = window.G_Filters;
+  let url = (lang === 'all') ? '/leaderboard_all' : `/leaderboard?mode=${mode}&difficulty=${diff}&lang=${lang}`;
+  
+  const data = await apiFetch(url);
+  if (data && data.leaderboard) {
+    lbRows = data.leaderboard;
+    renderLeaderboard(lbRows, 'lbGridGlobal');
+    updateLBFooter(lbRows);
   } else {
-    fetchLBSpecific();
+    renderLeaderboard([], 'lbGridGlobal');
   }
 }
 
-async function setLBFilter(key, val) {
-  lbFilters[key] = val;
+async function setLBFilter(type, val) {
+  window.syncGFilters(type, val);
+}
 
-  // UI update for filter buttons
-  if (key === 'mode') {
-    document.querySelectorAll('#lbFilterMode .lb-filter-btn').forEach(b =>
-      b.classList.toggle('active', b.textContent.toLowerCase() === val));
-  } else if (key === 'diff') {
-    document.querySelectorAll('#lbFilterDiff .lb-filter-btn').forEach(b =>
-      b.classList.toggle('active', b.textContent.toLowerCase() === val));
+function updateLBFooter(rows) {
+  const fRank = document.getElementById('lbFooterRank');
+  if (!fRank) return;
+
+  if (!GS.username) {
+    fRank.textContent = 'NEURAL LINK OFFLINE';
+    return;
   }
 
-  fetchLBSpecific();
+  const myEntry = rows.find(r => r.username === GS.username);
+  if (myEntry) {
+    const idx = rows.indexOf(myEntry) + 1;
+    const gr = myEntry.global_rank || { name: 'Recruit', icon: '⬡' };
+    fRank.innerHTML = `<span style="color:#00d4ff">${gr.icon} ${gr.name}</span> (#${idx})`;
+  } else {
+    fRank.textContent = 'NO DATA LOGGED';
+  }
 }
 
-async function fetchLBSpecific() {
-  const { mode, diff, lang } = lbFilters;
-  const grid = document.getElementById('lbGridSpecific');
-  if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;opacity:0.5">FILTERING DATA...</div>';
-
-  const data = await apiFetch(`/leaderboard?mode=${mode}&difficulty=${diff}&lang=${lang}`);
-  if (data && data.leaderboard) renderLeaderboard(data.leaderboard, 'lbGridSpecific');
-  else renderLeaderboard([], 'lbGridSpecific');
+function scrollToMe() {
+  const me = document.querySelector('.lb-stream-row.is-me');
+  if (me) {
+    me.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    me.style.animation = 'none';
+    setTimeout(() => me.style.boxShadow = '0 0 20px rgba(0,212,255,0.4)', 10);
+    setTimeout(() => me.style.boxShadow = '', 1000);
+  }
 }
+
+
 
 function renderLeaderboard(rows, containerId) {
   const grid = document.getElementById(containerId);
   if (!grid) return;
   grid.innerHTML = '';
 
-  const langNames = { python: '🐍 Python', java: '☕ Java', c: '⚙ C-Lang' };
-
   if (!rows || rows.length === 0) {
-    grid.innerHTML = '<div class="lb-empty" style="grid-column:1/-1;text-align:center;padding:40px;opacity:0.5">NO ENTRIES FOUND</div>';
+    grid.innerHTML = '<div class="lb-empty">NO DATA-STREAM DETECTED</div>';
     return;
   }
 
+  const isAll = window.G_Filters.lang === 'all';
+
   rows.forEach((player, i) => {
-    const gr = player.global_rank || { name: 'Recruit', color: '#4a6080', icon: '⬡' };
-    const lb = player.lang_badges || {};
-    const card = document.createElement('div');
-    card.className = 'lb-lang';
-    card.style.cssText = `border-color:${gr.color}33;`;
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.5);letter-spacing:2px;">#${i + 1} ${player.points !== undefined ? '· ' + player.points + ' PTS' : ''}</span>
-        <span style="font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:white;letter-spacing:2px;">${player.username}</span>
+    const isMe = GS.username && player.username === GS.username;
+    let badgeOpts = player.global_rank || { name: 'Recruit', color: '#4a6080', icon: '⬡' };
+    let scoreDisplay = '';
+    let badgeLabel = 'GLOBAL RANK BADGE';
+
+    if (isAll) {
+      scoreDisplay = `
+        <div class="lb-col-score" style="margin-left: 20px;">
+          <span class="lb-user-lbl" style="display:block;margin-bottom:-2px;">TOTAL LEVELS</span>
+          <span style="font-family:var(--hud-mono);font-size:16px;color:rgba(0,212,255,0.9);">${player.total_levels || 0}</span>
+        </div>
+        <div class="lb-col-score" style="margin-left: 15px;">
+          <span class="lb-user-lbl" style="display:block;margin-bottom:-2px;">TOTAL SCORE</span>
+          <span style="font-family:var(--hud-mono);font-size:16px;color:var(--gold);">${player.total_score || 0}</span>
+        </div>
+      `;
+    } else {
+      badgeLabel = window.G_Filters.lang.toUpperCase() + ' BADGE';
+      if (player.lang_badges && player.lang_badges[window.G_Filters.lang]) {
+        badgeOpts = player.lang_badges[window.G_Filters.lang];
+      } else {
+        badgeOpts = { name: 'Beginner', color: '#68778d', icon: '◯' };
+      }
+      
+      scoreDisplay = `
+        <div class="lb-col-score" style="margin-left: 20px;">
+          <span class="lb-user-lbl" style="display:block;margin-bottom:-2px;">POINTS</span>
+          <span style="font-family:var(--hud-mono);font-size:16px;color:var(--cyan);">${player.points || 0}</span>
+        </div>
+      `;
+    }
+    
+    const row = document.createElement('div');
+    row.className = `lb-stream-row ${isMe ? 'is-me' : ''}`;
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    
+    row.innerHTML = `
+      <div class="lb-col-rank">#${(i + 1).toString().padStart(2, '0')}</div>
+      
+      <div class="lb-col-user">
+        <span class="lb-user-lbl">USERNAME</span>
+        <span class="lb-user-name">${player.username}</span>
       </div>
-      <div style="font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:${gr.color};letter-spacing:3px;margin-bottom:10px;text-shadow:0 0 12px ${gr.color}88;">${gr.icon} ${gr.name.toUpperCase()}</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${['python', 'java', 'c'].map(lang => {
-      const b = lb[lang] || { icon: '⬡', name: 'Recruit', color: '#4a6080' };
-      return `<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:${b.color};padding:3px 7px;border:1px solid ${b.color}44;letter-spacing:1px;">${langNames[lang]}: ${b.icon} ${b.name}</div>`;
-    }).join('')}
-      </div>`;
-    grid.appendChild(card);
+      
+      <div class="lb-col-badge">
+        <span class="lb-user-lbl">${badgeLabel}</span>
+        <div class="lb-badge-box">
+          <span class="lb-badge-icon" style="color:${badgeOpts.color}">${badgeOpts.icon}</span>
+          <span class="lb-badge-name" style="color:${badgeOpts.color}">${badgeOpts.name.toUpperCase()}</span>
+        </div>
+      </div>
+
+      ${scoreDisplay}
+    `;
+    grid.appendChild(row);
   });
+}
+
+function switchLBTab(tab) {
+  // Legacy function needed for Refresh button in HTML
+  openLB();
 }
 
 function closeLB() {
   document.getElementById('lbModal').classList.remove('open');
   try { playUI('close'); } catch (e) { }
 }
+
+window.scrollToMe = scrollToMe;
+
 
 // ── SESSION CHECK on load ─────────────────────────────────────
 window.addEventListener('load', () => {
@@ -2846,39 +3266,231 @@ document.querySelectorAll('.diff-pill').forEach(t => t.addEventListener('click',
 window.apiAddPoints = apiAddPoints;
 
 // Load settings from localStorage
+// ── REFINED VOLUME & UI SETTINGS ARCHITECTURE ─────────────────────────────
+let masterVolMult = 0.5;
+let musicVolMult = 0.8;
+let sfxVolMult = 0.8;
+
+/**
+ * Calculates final volume based on Master * Category
+ * @param {string} type - 'music' or 'sfx'
+ * @returns {number} - Result between 0.0 and 1.0
+ */
+function getFinalVol(type) {
+  const m = parseFloat(localStorage.getItem('set-master-vol') || 50) / 100;
+  const s = (type === 'music')
+    ? parseFloat(localStorage.getItem('set-music-vol') || 80) / 100
+    : parseFloat(localStorage.getItem('set-sfx-vol') || 80) / 100;
+  return m * s;
+}
+
+// ── INITIALIZE & SYNC ALL SETTINGS ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  const vol = document.getElementById('set-master-vol');
-  const err = document.getElementById('set-error-flash');
-  const pts = document.getElementById('set-score-popups');
 
-  if (vol) {
-    if (localStorage.getItem('set-master-vol')) vol.value = localStorage.getItem('set-master-vol');
-    vol.addEventListener('input', (e) => {
-      localStorage.setItem('set-master-vol', e.target.value);
-      masterVolume = (e.target.value) / 100;
+  // ── Restore settings from localStorage ──────────────────────────────────
+  const _setToggle = (id, key, def = '1') => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = localStorage.getItem(key) ?? def;
+    el.checked = val !== '0';
+  };
+  _setToggle('set-sfx-toggle',    'cd_sfx',         '1');
+  _setToggle('set-ui-sounds',     'cd_uisfx',       '1');
+  _setToggle('set-score-popup',   'cd_scorePopup',  '1');
+  _setToggle('set-auto-advance',  'cd_autoAdvance', '0');
+  _setToggle('set-reduce-motion', 'cd_reduceMotion','0');
+  // Apply reduced motion immediately if persisted
+  if (localStorage.getItem('cd_reduceMotion') === '1') {
+    const wc = document.getElementById('wormholeCanvas');
+    if (wc) wc.style.display = 'none';
+  }
+
+  // 1. Audio Sliders Integration
+  const audioControls = [
+    { id: 'set-master-vol', key: 'master' },
+    { id: 'set-music-vol', key: 'music' },
+    { id: 'set-sfx-vol', key: 'sfx' }
+  ];
+
+  audioControls.forEach(control => {
+    const slider = document.getElementById(control.id);
+    if (!slider) return;
+
+    // Load Persistence
+    const saved = localStorage.getItem(control.id);
+    if (saved !== null) slider.value = saved;
+
+    // Initial Label Update
+    if (slider.nextElementSibling) slider.nextElementSibling.textContent = slider.value;
+
+    // Live Interaction
+    slider.addEventListener('input', (e) => {
+      const val = e.target.value;
+      localStorage.setItem(control.id, val);
+      if (slider.nextElementSibling) slider.nextElementSibling.textContent = val;
+
+      // Sync legacy masterVolume for compatibility with older game.js logic
+      if (control.key === 'master') {
+        window.masterVolume = val / 100;
+      }
+
+      // Real-time Music Adjustment
+      if (control.key === 'master' || control.key === 'music') {
+        if (window.activeAudio && !window.activeAudio.paused) {
+          window.activeAudio.volume = getFinalVol('music');
+        }
+      }
     });
-    if (vol.nextElementSibling) vol.nextElementSibling.textContent = vol.value;
-    masterVolume = vol.value / 100;
-  }
+  });
 
-  if (err) {
-    if (localStorage.getItem('set-error-flash') !== null) err.checked = localStorage.getItem('set-error-flash') === 'true';
-    err.addEventListener('change', (e) => localStorage.setItem('set-error-flash', e.target.checked));
-  }
+  // 2. UI Checkboxes Restoration (Error Flash, Popups, UI Sounds)
+  const uiToggles = [
+    'set-error-flash',
+    'set-score-popups',
+    'set-ui-sounds'
+  ];
 
-  if (pts) {
-    if (localStorage.getItem('set-score-popups') !== null) pts.checked = localStorage.getItem('set-score-popups') === 'true';
-    pts.addEventListener('change', (e) => localStorage.setItem('set-score-popups', e.target.checked));
-  }
+  uiToggles.forEach(toggleId => {
+    const cb = document.getElementById(toggleId);
+    if (!cb) return;
 
-  const uiSounds = document.getElementById('set-ui-sounds');
-  if (uiSounds) {
-    if (localStorage.getItem('set-ui-sounds') !== null) {
-      uiSounds.checked = localStorage.getItem('set-ui-sounds') === 'true';
+    // Load Persistence
+    const saved = localStorage.getItem(toggleId);
+    if (saved !== null) {
+      cb.checked = (saved === 'true');
     }
-    uiSounds.addEventListener('change', (e) => {
-      localStorage.setItem('set-ui-sounds', e.target.checked);
+
+    // Live Interaction
+    cb.addEventListener('change', (e) => {
+      localStorage.setItem(toggleId, e.target.checked);
     });
-  }
+  });
 });
+
+/**
+ * Global SFX Player
+ * Use this in game.js or nexus_core.js for any sound effects
+ */
+window.playSound = function (src, weight = 1.0) {
+  // Respect the UI Sounds toggle
+  const enabled = localStorage.getItem('set-ui-sounds') !== 'false';
+  if (!enabled) return;
+
+  try {
+    const sfx = new Audio(src);
+    sfx.volume = getFinalVol('sfx') * weight;
+    sfx.play().catch(() => { /* Silence autoplay errors */ });
+  } catch (e) {
+    console.error("Audio Error:", e);
+  }
+};
+
+// ── INTEGRATE WITH EXISTING TOGGLE ───────────────────────────────────────────
+if (!window._baseToggle) {
+  window._baseToggle = window.toggleMusic;
+}
+
+window.toggleMusic = function () {
+  if (typeof window._baseToggle === 'function') {
+    window._baseToggle();
+    // If it just started playing, apply the hierarchical volume
+    if (window.activeAudio && !window.activeAudio.paused) {
+      window.activeAudio.volume = (typeof getFinalVol === 'function') ? getFinalVol('music') : (window.masterVolume || 0.7);
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  AUDIO SYSTEM
+// ═══════════════════════════════════════════════════════════════════════════
+
+// 1. Expose volume control to HTML, while maintaining internal access
+window.setMusicVolume = function (val) {
+  const volumeLevel = val / 100;
+
+  // Modify the global masterVolume if it exists
+  if (typeof masterVolume !== 'undefined') {
+    masterVolume = volumeLevel;
+  }
+  if (typeof activeAudio !== 'undefined' && activeAudio) {
+    // Apply combined volume if getFinalVol exists, else direct
+    activeAudio.volume = (typeof getFinalVol === 'function') ? getFinalVol('music') : volumeLevel;
+  }
+
+  localStorage.setItem('set-master-vol', val);
+};
+
+// 2. Set initial volume & Toggles on load
+document.addEventListener('DOMContentLoaded', () => {
+  const savedVol = localStorage.getItem('set-master-vol');
+  if (savedVol !== null) {
+    window.setMusicVolume(savedVol);
+  }
+
+  ['set-sfx-toggle', 'set-ui-sounds'].forEach(id => {
+    const cb = document.getElementById(id);
+    if (cb) {
+      const saved = localStorage.getItem(id);
+      if (saved !== null) cb.checked = (saved === 'true');
+      cb.addEventListener('change', (e) => localStorage.setItem(id, e.target.checked));
+    }
+  });
+});
+
+// 3. Independent SFX Generator
+let simpleAudioCtx = null;
+window.playSynth = function (type) {
+  if (localStorage.getItem('set-sfx-toggle') === 'false') return;
+
+  if (!simpleAudioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    simpleAudioCtx = new AudioContext();
+  }
+  if (simpleAudioCtx.state === 'suspended') simpleAudioCtx.resume();
+
+  const osc = simpleAudioCtx.createOscillator();
+  const gain = simpleAudioCtx.createGain();
+
+  osc.connect(gain);
+  gain.connect(simpleAudioCtx.destination);
+  const now = simpleAudioCtx.currentTime;
+
+  if (type === 'laser') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    osc.start(now); osc.stop(now + 0.1);
+  }
+  else if (type === 'error') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(150, now);
+    osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+    osc.start(now); osc.stop(now + 0.2);
+  }
+};
+
+// 4. Auto-wire the sounds to the game logic
+setTimeout(() => {
+  if (typeof window.finishDestroyWord === 'function') {
+    const oldDestroy = window.finishDestroyWord;
+    window.finishDestroyWord = function () {
+      window.playSynth('laser');
+      return oldDestroy.apply(this, arguments);
+    };
+  }
+
+  ['triggerErrorFlash', 'triggerError', 'flashScreen', 'flashError'].forEach(fn => {
+    if (typeof window[fn] === 'function') {
+      const oldErr = window[fn];
+      window[fn] = function () {
+        window.playSynth('error');
+        return oldErr.apply(this, arguments);
+      };
+    }
+  });
+}, 1000);
 
