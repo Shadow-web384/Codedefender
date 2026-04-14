@@ -14,7 +14,7 @@
   <!-- WORMHOLE CANVAS — sits behind everything -->
   <canvas id="wormholeCanvas"
     style="position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%;"></canvas>
-    
+
 
   <div class="scanlines"></div>
   <!-- MUSIC TOGGLE -->
@@ -155,7 +155,8 @@
               </div>
             </div>
             <div class="dd-section-header">🎓 Learning Tools</div>
-            <div class="dd-item" onclick="document.getElementById('be-sandbox-modal').classList.add('open');closeAllDD()">
+            <div class="dd-item"
+              onclick="document.getElementById('be-sandbox-modal').classList.add('open');closeAllDD()">
               <div class="dd-icon">🧪</div>
               <div class="dd-item-text">
                 <div class="dd-item-label">Sandbox Terminal</div>
@@ -197,9 +198,11 @@
         <div class="tb-div"></div>
         <div class="mc-group">
           <span class="mc-label">Mission</span>
-          <div class="mc-chip"><span class="mc-key">Status</span><span class="mc-val online">ONLINE</span></div>
+          <div class="mc-chip"><span class="mc-key">Status</span><span class="mc-val online"
+              id="idleStatus">ONLINE</span></div>
           <div class="mc-chip"><span class="mc-key">Cmdr</span><span class="mc-val" id="idleCmdr">—</span></div>
-          <div class="mc-chip"><span class="mc-key">Rank</span><span class="mc-val rank-badge-hud" style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;">🔵 RECRUIT</span></div>
+          <div class="mc-chip"><span class="mc-key">Rank</span><span class="mc-val rank-badge-hud"
+              style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;">🔵 RECRUIT</span></div>
 
         </div>
         <div class="tb-spacer"></div>
@@ -227,13 +230,15 @@
               </div>
               <div class="setup-card" id="card-builder" onclick="wizardSelectMode('builder')">
                 <div class="setup-card-icon">🛠</div>
-                <div class="setup-card-title">Code Builder<span class="nexus-builder-pts-badge" id="nexus-builder-pts-badge">0</span></div>
+                <div class="setup-card-title">Code Builder<span class="nexus-builder-pts-badge"
+                    id="nexus-builder-pts-badge">0</span></div>
                 <div class="setup-card-desc">Reconstruct full lines of code from memory. Peek the code list to prepare.
                 </div>
               </div>
             </div>
             <div style="display:flex;gap:10px;margin-top:4px;align-items:center;">
-              <div id="globalPointsTotal" class="dashboard-points-wrap">TOTAL POINTS: <span id="idleScore" style="color:var(--gold)">0</span></div>
+              <div id="globalPointsTotal" class="dashboard-points-wrap">TOTAL POINTS: <span id="idleScore"
+                  style="color:var(--gold)">0</span></div>
               <button onclick="openModal('syntaxModal')"
                 style="font-family:var(--hud-mono);font-size:var(--hud-sz);letter-spacing:2px;text-transform:uppercase;padding:7px 18px;background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.18);color:rgba(0,212,255,0.9);cursor:pointer;clip-path:polygon(4px 0%,100% 0%,calc(100% - 4px) 100%,0% 100%);transition:all 0.2s;"
                 onmouseover="this.style.borderColor='rgba(0,212,255,0.4)';this.style.color='var(--cyan)'"
@@ -307,12 +312,14 @@
     <!-- FLOATING GAME HUD OVERLAY (replaces topbar entirely) -->
     <div class="game-hud-overlay">
       <div class="gho-left">
-        <span class="rank-badge-hud" id="hudRankBadge" style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;letter-spacing:2px;padding:4px 10px;border:1px solid rgba(57,255,143,0.3);color:var(--aurora);display:none;margin-right:10px;"></span>
+        <span class="rank-badge-hud" id="hudRankBadge"
+          style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;letter-spacing:2px;padding:4px 10px;border:1px solid rgba(57,255,143,0.3);color:var(--aurora);display:none;margin-right:10px;"></span>
         <span class="gho-sector">SECTOR: PYTHON</span>
         <span class="gho-sep">|</span>
         <span class="gho-lvl">LVL 2</span>
         <!-- NEXUS: Level concept tag — auto-updated by nexus_core.js showConceptBanner() -->
-        <span class="nexus-concept-tag" id="nexus-concept-tag" style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;letter-spacing:2px;padding:2px 7px;border-radius:2px;background:rgba(181,122,255,0.1);border:1px solid rgba(181,122,255,0.3);color:var(--nexus-sniper,#b57aff);margin-left:4px;">SYNTAX</span>
+        <span class="nexus-concept-tag" id="nexus-concept-tag"
+          style="font-family:'Orbitron',monospace;font-size:8px;font-weight:700;letter-spacing:2px;padding:2px 7px;border-radius:2px;background:rgba(181,122,255,0.1);border:1px solid rgba(181,122,255,0.3);color:var(--nexus-sniper,#b57aff);margin-left:4px;">SYNTAX</span>
         <span class="gho-sec">SEC 2: LOGIC GATES</span>
       </div>
       <div class="gho-center">
@@ -320,7 +327,9 @@
         <span class="gho-score-val" id="gameScore">0</span>
       </div>
       <div class="gho-right">
-        <span class="gho-mode" id="ghoMode" style="font-family:'Orbitron',monospace; font-size:10px; font-weight:700; letter-spacing:2px; margin-right:15px; color:rgba(0,212,255,0.7); text-transform:uppercase;">CLASSIC MODE</span>
+        <span class="gho-mode" id="ghoMode"
+          style="font-family:'Orbitron',monospace; font-size:10px; font-weight:700; letter-spacing:2px; margin-right:15px; color:rgba(0,212,255,0.7); text-transform:uppercase;">CLASSIC
+          MODE</span>
         <button class="gho-abort" onclick="abortMission()">✕ ABORT</button>
       </div>
     </div>
@@ -328,8 +337,11 @@
       <div class="game-canvas-area" id="gameCanvas">
         <div class="bottom-left-hud">
           <div class="pro-mode-pill" id="proModePill" style="display:none;">⚠ PRO — ENTER TO FIRE</div>
-          <div class="builder-entry-fee-pill" id="hudPtsPill" style="display:none;" title="Remaining Points">⬡ <span id="hudPtsVal">0</span> PTS</div>
-          <div class="builder-entry-fee-pill" id="entryFeePill" style="display:none;" title="Entry fee deducted when level starts. Complete the level to recover with +100 bonus.">⚡ ENTRY FEE ACTIVE</div>
+          <div class="builder-entry-fee-pill" id="hudPtsPill" style="display:none;" title="Remaining Points">⬡ <span
+              id="hudPtsVal">0</span> PTS</div>
+          <div class="builder-entry-fee-pill" id="entryFeePill" style="display:none;"
+            title="Entry fee deducted when level starts. Complete the level to recover with +100 bonus.">⚡ ENTRY FEE
+            ACTIVE</div>
         </div>
 
         <!-- Words spawned dynamically by spawnWords() when game starts -->
@@ -417,7 +429,8 @@
             <div class="cmd-prompt">$_</div>
             <input class="cmd-input" id="cmdInputField" type="text" placeholder="type full line then ENTER..."
               autocomplete="off" spellcheck="false" />
-            <div class="cmd-target-chip" id="cmdTarget">TARGET: <span id="activeTargetHUD">[ STANDBY - TYPE TO LOCK ON ]</span></div>
+            <div class="cmd-target-chip" id="cmdTarget">TARGET: <span id="activeTargetHUD">[ STANDBY - TYPE TO LOCK ON
+                ]</span></div>
           </div>
         </div>
         <!-- Hidden global input catcher for Classic mode — captures keypresses without a visible input -->
@@ -441,7 +454,7 @@
                   fill="none" />
                 <circle cx="18" cy="18" r="4" fill="rgba(0,212,255,0.8)" />
               </svg></div>
-            <div class="brand-name">CODE DEFENDER</div>
+            <div class="brand-name">CodeDefender</div>
             <svg class="brand-chevron" viewBox="0 0 12 12" fill="none">
               <path d="M2 4l4 4 4-4" stroke="rgba(0,212,255,0.6)" stroke-width="1.5" stroke-linecap="round"
                 stroke-linejoin="round" />
@@ -486,7 +499,8 @@
               </div>
             </div>
             <div class="dd-section-header">🎓 Learning Tools</div>
-            <div class="dd-item" onclick="document.getElementById('be-sandbox-modal').classList.add('open');closeAllDD()">
+            <div class="dd-item"
+              onclick="document.getElementById('be-sandbox-modal').classList.add('open');closeAllDD()">
               <div class="dd-icon">🧪</div>
               <div class="dd-item-text">
                 <div class="dd-item-label">Sandbox Terminal</div>
@@ -527,9 +541,10 @@
         <div class="tb-div"></div>
         <div class="mc-group">
           <span class="mc-label">Mission</span>
-          <div class="mc-chip"><span class="mc-key">Status</span><span class="mc-val online">ONLINE</span></div>
-          <div class="mc-chip"><span class="mc-key">Cmdr</span><span class="mc-val">Shadow</span></div>
-          <div class="mc-chip"><span class="mc-key">Score</span><span class="mc-val gold">0</span></div>
+          <div class="mc-chip"><span class="mc-key">Status</span><span class="mc-val online" id="goStatus">ONLINE</span>
+          </div>
+          <div class="mc-chip"><span class="mc-key">Cmdr</span><span class="mc-val" id="goCmdr">Shadow</span></div>
+          <div class="mc-chip"><span class="mc-key">Score</span><span class="mc-val gold" id="goScore">0</span></div>
 
         </div>
         <div class="tb-spacer"></div>
@@ -538,8 +553,9 @@
       </div>
     </header>
     <div class="sector-bar">
-      <div class="sector-info"><span id="goSectorSpan">SECTOR: JAVA</span><span class="sector-sep">|</span><span id="goLvlSpan">LVL 1</span><span
-          class="sector-sep">|</span><span id="goSecSpan">SEC 1: PRIMITIVES</span></div>
+      <div class="sector-info"><span id="goSectorSpan">SECTOR: JAVA</span><span class="sector-sep">|</span><span
+          id="goLvlSpan">LVL 1</span><span class="sector-sep">|</span><span id="goSecSpan">SEC 1: PRIMITIVES</span>
+      </div>
       <div class="sector-status breached">⚠ STATUS: SYSTEM BREACHED</div>
     </div>
     <main class="main">
@@ -574,10 +590,14 @@
             <span class="mode-badge-diff" id="goDiffVal">Normal</span>
           </div>
           <div class="actions" id="goActionsRow">
-            <button class="action-btn btn-secondary" id="replayLevelBtn" onclick="replayCurrentLevel()" style="display:none">↺ Replay Level</button>
-            <button class="action-btn btn-primary" id="nextLevelBtn" onclick="advanceToNextLevel()" style="display:none">▶ Next Level</button>
-            <button class="action-btn btn-primary" id="retryMissionBtn" onclick="retryMission()" style="display:none">↺ Retry Mission</button>
-            <button class="action-btn btn-secondary" id="returnToBaseBtn" onclick="GS.sessionScore=0;goTo('screen-idle')">⌂ Return to Base</button>
+            <button class="action-btn btn-secondary" id="replayLevelBtn" onclick="replayCurrentLevel()"
+              style="display:none">↺ Replay Level</button>
+            <button class="action-btn btn-primary" id="nextLevelBtn" onclick="advanceToNextLevel()"
+              style="display:none">▶ Next Level</button>
+            <button class="action-btn btn-primary" id="retryMissionBtn" onclick="retryMission()" style="display:none">↺
+              Retry Mission</button>
+            <button class="action-btn btn-secondary" id="returnToBaseBtn"
+              onclick="GS.sessionScore=0;goTo('screen-idle')">⌂ Return to Base</button>
           </div>
         </div>
       </div>
@@ -620,8 +640,7 @@
       <div class="modal-header">
         <div class="modal-title"><span class="modal-title-icon">◎</span> MISSION BRIEFING</div>
         <div style="display:flex;align-items:baseline;gap:6px;margin-left:auto;margin-right:12px;">
-          <span style="font-size:8px;letter-spacing:2px;color:rgba(0,212,255,0.5)">SESSION PTS</span>
-          <span id="htp-pts-val" style="font-family:'Orbitron',monospace;font-size:16px;color:#00d4ff;text-shadow:0 0 10px rgba(0,212,255,0.7);">0</span>
+          <span id="htp-pts-val"></span>
         </div>
         <div class="modal-close" onclick="closeModal('howToPlayModal')">✕</div>
       </div>
@@ -663,14 +682,6 @@
                       sharp.</div>
                   </div>
                 </div>
-                <div class="htp-step htp-step-warn">
-                  <div class="htp-step-num">!</div>
-                  <div class="htp-step-body">
-                    <div class="htp-step-title">Red (corrupt) words are worth 2× points</div>
-                    <div class="htp-step-desc">But they also mean the mission ends if they breach. Prioritise them.
-                    </div>
-                  </div>
-                </div>
               </div>
               <div class="htp-score-row">
                 <div class="htp-score-chip green">+10 per word</div>
@@ -690,7 +701,8 @@
                   <div class="htp-step-body">
                     <div class="htp-step-title">Full lines of code fall instead of single words</div>
                     <div class="htp-step-desc">You'll see complete lines like <span class="htp-hl">for i in
-                        range(3):</span> falling toward the red line. These fall much slower than in Classic mode to give you time to think and type.</div>
+                        range(3):</span> falling toward the red line. These fall much slower than in Classic mode to
+                      give you time to think and type.</div>
                   </div>
                 </div>
                 <div class="htp-step">
@@ -714,7 +726,8 @@
                   <div class="htp-step-body">
                     <div class="htp-step-title">An OUTPUT appears when you complete a line</div>
                     <div class="htp-step-desc">A small panel top-right shows you what that line of code actually
-                      <em>does</em> — so you learn the syntax as you play.</div>
+                      <em>does</em> — so you learn the syntax as you play.
+                    </div>
                   </div>
                 </div>
                 <div class="htp-step htp-step-warn">
@@ -722,8 +735,10 @@
                   <div class="htp-step-body">
                     <div class="htp-step-title">Entry fee deducted when each level starts</div>
                     <div class="htp-step-desc">Level 1 costs <span class="htp-hl red">−10 pts</span>, Level 2 costs
-                      <span class="htp-hl red">−20 pts</span>, and so on. You are only charged if you have enough points to afford it. Complete the level to recover them — the +200
-                      bonus more than covers it.</div>
+                      <span class="htp-hl red">−20 pts</span>, and so on. You are only charged if you have enough points
+                      to afford it. Complete the level to recover them — the +200
+                      bonus more than covers it.
+                    </div>
                   </div>
                 </div>
                 <div class="htp-step htp-step-boss">
@@ -799,34 +814,56 @@
         <div class="modal-body">
           <div class="pts-section">
             <div class="pts-header">Global Ranks</div>
-            <div class="pts-row"><span class="pts-row-label">🔵 Recruit</span><span class="pts-row-val" style="color:#4a8fff;">Just registered</span></div>
-            <div class="pts-row"><span class="pts-row-label">🟢 Cadet</span><span class="pts-row-val" style="color:#39ff8f;">Cleared Level 1+ in any language (Normal)</span></div>
-            <div class="pts-row"><span class="pts-row-label">🟡 Defender</span><span class="pts-row-val" style="color:#ffd60a;">Cleared Level 3+ in any language (Normal)</span></div>
-            <div class="pts-row"><span class="pts-row-label">🟠 Specialist</span><span class="pts-row-val" style="color:#ff8c00;">Defender badge in ALL 3 languages</span></div>
-            <div class="pts-row"><span class="pts-row-label">🔴 Veteran</span><span class="pts-row-val" style="color:#ff4d6d;">Cleared any level in Pro Mode</span></div>
-            <div class="pts-row"><span class="pts-row-label">💜 Pro</span><span class="pts-row-val" style="color:#b44fff;">All 6 levels in Pro Mode (1 language)</span></div>
-            <div class="pts-row"><span class="pts-row-label">⚡ Elite</span><span class="pts-row-val" style="color:#00d4ff;">Pro Mode sweep in all 3 languages</span></div>
-            <div class="pts-row"><span class="pts-row-label">💀 Phantom</span><span class="pts-row-val" style="color:#fff;">Full sweep: all 3 languages × both modes</span></div>
+            <div class="pts-row"><span class="pts-row-label">🔵 Recruit</span><span class="pts-row-val"
+                style="color:#4a8fff;">Just registered</span></div>
+            <div class="pts-row"><span class="pts-row-label">🟢 Cadet</span><span class="pts-row-val"
+                style="color:#39ff8f;">Cleared Level 1+ in any language (Normal)</span></div>
+            <div class="pts-row"><span class="pts-row-label">🟡 Defender</span><span class="pts-row-val"
+                style="color:#ffd60a;">Cleared Level 3+ in any language (Normal)</span></div>
+            <div class="pts-row"><span class="pts-row-label">🟠 Specialist</span><span class="pts-row-val"
+                style="color:#ff8c00;">Defender badge in ALL 3 languages</span></div>
+            <div class="pts-row"><span class="pts-row-label">🔴 Veteran</span><span class="pts-row-val"
+                style="color:#ff4d6d;">Cleared any level in Pro Mode</span></div>
+            <div class="pts-row"><span class="pts-row-label">💜 Pro</span><span class="pts-row-val"
+                style="color:#b44fff;">All 6 levels in Pro Mode (1 language)</span></div>
+            <div class="pts-row"><span class="pts-row-label">⚡ Elite</span><span class="pts-row-val"
+                style="color:#00d4ff;">Pro Mode sweep in all 3 languages</span></div>
+            <div class="pts-row"><span class="pts-row-label">💀 Phantom</span><span class="pts-row-val"
+                style="color:#fff;">Full sweep: all 3 languages × both modes</span></div>
           </div>
           <div class="pts-section">
             <div class="pts-header">Language Badges (per language)</div>
-            <div class="pts-row"><span class="pts-row-label">⬡ Recruit</span><span class="pts-row-val" style="color:#4a6080;">Never played this language</span></div>
-            <div class="pts-row"><span class="pts-row-label">🔵 Initiate</span><span class="pts-row-val" style="color:#4a8fff;">Cleared level 1+ (Normal)</span></div>
-            <div class="pts-row"><span class="pts-row-label">🟢 Cadet</span><span class="pts-row-val" style="color:#39ff8f;">Cleared level 3+ (Normal)</span></div>
-            <div class="pts-row"><span class="pts-row-label">🟡 Defender</span><span class="pts-row-val" style="color:#ffd60a;">Cleared all 6 levels (Normal)</span></div>
-            <div class="pts-row"><span class="pts-row-label">🔴 Veteran</span><span class="pts-row-val" style="color:#ff4d6d;">Cleared any level (Pro Mode)</span></div>
-            <div class="pts-row"><span class="pts-row-label">⚡ Elite</span><span class="pts-row-val" style="color:#00d4ff;">Cleared all 6 levels (Pro Mode)</span></div>
+            <div class="pts-row"><span class="pts-row-label">⬡ Recruit</span><span class="pts-row-val"
+                style="color:#4a6080;">Never played this language</span></div>
+            <div class="pts-row"><span class="pts-row-label">🔵 Initiate</span><span class="pts-row-val"
+                style="color:#4a8fff;">Cleared level 1+ (Normal)</span></div>
+            <div class="pts-row"><span class="pts-row-label">🟢 Cadet</span><span class="pts-row-val"
+                style="color:#39ff8f;">Cleared level 3+ (Normal)</span></div>
+            <div class="pts-row"><span class="pts-row-label">🟡 Defender</span><span class="pts-row-val"
+                style="color:#ffd60a;">Cleared all 6 levels (Normal)</span></div>
+            <div class="pts-row"><span class="pts-row-label">🔴 Veteran</span><span class="pts-row-val"
+                style="color:#ff4d6d;">Cleared any level (Pro Mode)</span></div>
+            <div class="pts-row"><span class="pts-row-label">⚡ Elite</span><span class="pts-row-val"
+                style="color:#00d4ff;">Cleared all 6 levels (Pro Mode)</span></div>
           </div>
           <div class="pts-section">
             <div class="pts-header">Mission (Session) Score</div>
-            <div class="pts-desc" style="font-family:var(--hud-mono);font-size:var(--hud-sz);color:rgba(200,220,240,0.9);letter-spacing:1px;line-height:1.8;margin-bottom:10px;">
-              Session score gives you live feedback while playing. It resets when you return to base and is never saved to the leaderboard.</div>
-            <div class="pts-row"><span class="pts-row-label"><strong>Classic Defense</strong> — keyword</span><span class="pts-row-val plus">+10 session pts</span></div>
-            <div class="pts-row"><span class="pts-row-label"><strong>Classic Defense</strong> — corrupt keyword</span><span class="pts-row-val plus">+20 session pts</span></div>
-            <div class="pts-row"><span class="pts-row-label"><strong>Code Builder</strong> — line completed</span><span class="pts-row-val plus">+15 session pts</span></div>
-            <div class="pts-row"><span class="pts-row-label">Typing Speed &amp; Accuracy</span><span class="pts-row-val cyan">×1.5 / ×2 / ×3 multiplier</span></div>
-            <div class="pts-row"><span class="pts-row-label">Combo ×2 / ×3 / ×5</span><span class="pts-row-val cyan">multiplies session pts</span></div>
-            <div class="pts-row"><span class="pts-row-label">Level clear bonus</span><span class="pts-row-val gold">+100 / +200 session pts</span></div>
+            <div class="pts-desc"
+              style="font-family:var(--hud-mono);font-size:var(--hud-sz);color:rgba(200,220,240,0.9);letter-spacing:1px;line-height:1.8;margin-bottom:10px;">
+              Session score gives you live feedback while playing. It resets when you return to base and is never saved
+              to the leaderboard.</div>
+            <div class="pts-row"><span class="pts-row-label"><strong>Classic Defense</strong> — keyword</span><span
+                class="pts-row-val plus">+10 session pts</span></div>
+            <div class="pts-row"><span class="pts-row-label"><strong>Classic Defense</strong> — corrupt
+                keyword</span><span class="pts-row-val plus">+20 session pts</span></div>
+            <div class="pts-row"><span class="pts-row-label"><strong>Code Builder</strong> — line completed</span><span
+                class="pts-row-val plus">+15 session pts</span></div>
+            <div class="pts-row"><span class="pts-row-label">Typing Speed &amp; Accuracy</span><span
+                class="pts-row-val cyan">×1.5 / ×2 / ×3 multiplier</span></div>
+            <div class="pts-row"><span class="pts-row-label">Combo ×2 / ×3 / ×5</span><span
+                class="pts-row-val cyan">multiplies session pts</span></div>
+            <div class="pts-row"><span class="pts-row-label">Level clear bonus</span><span class="pts-row-val gold">+100
+                / +200 session pts</span></div>
           </div>
           <div class="pts-section">
             <div class="pts-header">Keyword Category Radar</div>
@@ -1001,9 +1038,9 @@
                   <div class="ach-name">Pythonista</div>
                   <div class="ach-desc">Complete all Python levels in Classic Defense on any difficulty.</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:33%"></div>
+                    <div class="ach-progress-fill" id="ach-python-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">1/3</span>
+                </div><span class="ach-badge locked" id="ach-python-badge">0/5</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">☕</div>
@@ -1011,9 +1048,9 @@
                   <div class="ach-name">Java Jockey</div>
                   <div class="ach-desc">Complete all Java levels in Classic Defense on any difficulty.</div>
                   <div class="ach-progress-bar">
-                    <div class="ach-progress-fill" style="width:0%"></div>
+                    <div class="ach-progress-fill" id="ach-java-fill" style="width:0%"></div>
                   </div>
-                </div><span class="ach-badge locked">0/3</span>
+                </div><span class="ach-badge locked" id="ach-java-badge">0/5</span>
               </div>
               <div class="ach-card locked">
                 <div class="ach-icon">⚡</div>
@@ -1090,8 +1127,11 @@
                   <div class="profile-avatar">
                     <div class="profile-avatar-icon" id="myAvatarIcon">🚀</div>
                     <div class="profile-handle">Shadow</div>
-                    <div class="profile-rank rank-badge-hud" id="myGlobalRank" style="cursor:default;">▸ RANK: RECRUIT ◂</div>
-                    <div id="myGlobalRankPos" style="font-family:var(--hud-mono);font-size:10px;color:rgba(200,220,240,0.6);margin-top:2px;">GLOBAL: #0</div>
+                    <div class="profile-rank rank-badge-hud" id="myGlobalRank" style="cursor:default;">▸ RANK: RECRUIT ◂
+                    </div>
+                    <div id="myGlobalRankPos"
+                      style="font-family:var(--hud-mono);font-size:10px;color:rgba(200,220,240,0.6);margin-top:2px;">
+                      GLOBAL: #0</div>
                   </div>
                   <div class="avatar-edit-hover">
                     <div class="avatar-edit-icon">✏️</div>
@@ -1115,14 +1155,18 @@
                 <div>
                   <div class="profile-stats-header">Combat Statistics</div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">🏅</span><span
-                      class="profile-stat-label">Total Score</span><span class="profile-stat-val gold">217</span></div>
+                      class="profile-stat-label">Total Score</span><span class="profile-stat-val gold"
+                      id="profileStatTotal">0</span></div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">🎮</span><span
-                      class="profile-stat-label">Sessions Played</span><span class="profile-stat-val">4</span></div>
+                      class="profile-stat-label">Sessions Played</span><span class="profile-stat-val"
+                      id="profileStatSessions">0</span></div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">⌨️</span><span
-                      class="profile-stat-label">Keywords Destroyed</span><span class="profile-stat-val cyan">89</span>
+                      class="profile-stat-label">Keywords Destroyed</span><span class="profile-stat-val cyan"
+                      id="profileStatWords">0</span>
                   </div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">🎯</span><span
-                      class="profile-stat-label">Best Accuracy</span><span class="profile-stat-val green">94%</span>
+                      class="profile-stat-label">Best Accuracy</span><span class="profile-stat-val green"
+                      id="profileStatAccuracy">0%</span>
                   </div>
                   <div class="profile-stat-row"><span class="profile-stat-icon">🔥</span><span
                       class="profile-stat-label">Max Combo</span><span class="profile-stat-val gold">×7</span></div>
@@ -1132,7 +1176,7 @@
                   <div class="profile-stat-row"><span class="profile-stat-icon">🏆</span><span
                       class="profile-stat-label">Levels Completed</span><span class="profile-stat-val cyan">3</span>
                   </div>
-                <div class="profile-stat-row"><span class="profile-stat-icon">⭐</span><span
+                  <div class="profile-stat-row"><span class="profile-stat-icon">⭐</span><span
                       class="profile-stat-label">Achievements</span><span class="profile-stat-val gold">2 / 10</span>
                   </div>
                 </div>
@@ -1141,18 +1185,30 @@
                   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
                     <div class="profile-lang-card" style="flex:1;min-width:80px;">
                       <div class="profile-lang-name"><i class="devicon-python-plain"></i> Python</div>
-                      <div id="langBadge_python" style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">⬡ Recruit</div>
-                      <div id="langBadge_python_pos" style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">RANK: #0</div>
+                      <div id="langBadge_python"
+                        style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">
+                        ⬡ Recruit</div>
+                      <div id="langBadge_python_pos"
+                        style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">
+                        RANK: #0</div>
                     </div>
                     <div class="profile-lang-card" style="flex:1;min-width:80px;">
                       <div class="profile-lang-name"><i class="devicon-java-plain"></i> Java</div>
-                      <div id="langBadge_java" style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">⬡ Recruit</div>
-                      <div id="langBadge_java_pos" style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">RANK: #0</div>
+                      <div id="langBadge_java"
+                        style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">
+                        ⬡ Recruit</div>
+                      <div id="langBadge_java_pos"
+                        style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">
+                        RANK: #0</div>
                     </div>
                     <div class="profile-lang-card" style="flex:1;min-width:80px;">
                       <div class="profile-lang-name"><i class="devicon-c-plain"></i> C-Lang</div>
-                      <div id="langBadge_c" style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">⬡ Recruit</div>
-                      <div id="langBadge_c_pos" style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">RANK: #0</div>
+                      <div id="langBadge_c"
+                        style="font-family:var(--hud-mono);font-size:var(--hud-sz);font-weight:700;color:#4a6080;margin-top:4px;">
+                        ⬡ Recruit</div>
+                      <div id="langBadge_c_pos"
+                        style="font-family:var(--hud-mono);font-size:9px;color:rgba(200,220,240,0.5);margin-top:2px;">
+                        RANK: #0</div>
                     </div>
                   </div>
                 </div>
@@ -1164,7 +1220,9 @@
           <div id="rosterPanel" style="display:none;">
             <div class="roster-header">GLOBAL DEFENDER ROSTER</div>
             <div class="roster-list" id="rosterList">
-              <div id="rosterLoading" style="padding:40px;text-align:center;color:var(--dim);font-family:var(--hud-mono);font-size:10px;">LOADING DEFENDER DATA...</div>
+              <div id="rosterLoading"
+                style="padding:40px;text-align:center;color:var(--dim);font-family:var(--hud-mono);font-size:10px;">
+                LOADING DEFENDER DATA...</div>
             </div>
           </div>
         </div>
@@ -1271,8 +1329,8 @@
                   <div class="setting-sub">Overall game audio level</div>
                 </div>
                 <div class="setting-control">
-                  <div class="setting-slider-wrap"><input type="range" class="setting-slider" id="set-master-vol" min="0" max="100"
-                      value="75"
+                  <div class="setting-slider-wrap"><input type="range" class="setting-slider" id="set-master-vol"
+                      min="0" max="100" value="75"
                       oninput="this.nextElementSibling.textContent=this.value;setMusicVolume(this.value)"><span
                       class="setting-slider-val">80</span></div>
                 </div>
@@ -1359,8 +1417,10 @@
       </div>
       <div class="modal-tabs">
         <button class="modal-tab active" onclick="switchTab('syn','general',this)">General</button>
-        <button class="modal-tab" onclick="switchTab('syn','python',this)"><i class="devicon-python-plain"></i> Python</button>
-        <button class="modal-tab" onclick="switchTab('syn','java',this)"><i class="devicon-java-plain"></i> Java</button>
+        <button class="modal-tab" onclick="switchTab('syn','python',this)"><i class="devicon-python-plain"></i>
+          Python</button>
+        <button class="modal-tab" onclick="switchTab('syn','java',this)"><i class="devicon-java-plain"></i>
+          Java</button>
         <button class="modal-tab" onclick="switchTab('syn','c',this)"><i class="devicon-c-plain"></i> C-Lang</button>
       </div>
       <div class="modal-scroll">
@@ -1951,7 +2011,8 @@
                   </div>
                 </div>
                 <div class="proposal-concept">💡 <strong>def</strong> creates a reusable function.
-                  <strong>return</strong> sends a value back to wherever the function was called.</div>
+                  <strong>return</strong> sends a value back to wherever the function was called.
+                </div>
               </div>
             </div>
           </div>

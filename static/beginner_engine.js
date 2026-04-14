@@ -207,6 +207,7 @@
   }
 
   function showMistakeCard(kw) {
+    if (window.GS?.mode === 'classic') return;
     // Use NEXUS DB if available
     const DB = window.NX ? null : null; // NX doesn't expose DB directly
     // Fall back to our own mini-glossary

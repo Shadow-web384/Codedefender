@@ -51,6 +51,74 @@ db_config = {
 def get_db():
     return mysql.connector.connect(**db_config)
 
+def get_db_lang(lang, mode, difficulty):
+    # Compresses strings into 6 characters to stay within safety limits
+    l_prefix = lang[:2].lower()
+    m_prefix = mode[:1].lower()
+    d_prefix = difficulty[:1].lower()
+    return f"{l_prefix}_{m_prefix}_{d_prefix}"
+
+def compute_ranks(progress_rows):
+    """
+    progress_rows: list of dicts with keys: language(db_lang), current_task
+    Returns: { lang_badges: {python:.., java:.., c:..}, global_rank: {...} }
+    """
+    langs = ['python', 'java', 'c']
+    modes = ['classic', 'builder']
+    diffs = ['normal', 'pro']
+
+    # Build a lookup: (lang, mode, diff) -> max_level_completed
+    # current_task in progress = next level to play, so completed = current_task - 1
+    progress_map = {}
+    for row in progress_rows:
+        progress_map[row['language']] = max(0, row['current_task'] - 1)
+
+    # Compute per-language stats
+    lang_stats = {}  # lang -> {max_normal, max_pro, has_pro_complete}
+    for lang in langs:
+        max_normal = 0
+        max_pro = 0
+        for mode in modes:
+            for diff in diffs:
+                db_lang = get_db_lang(lang, mode, diff)
+                lvls = progress_map.get(db_lang, 0)
+                if diff == 'pro':
+                    max_pro = max(max_pro, lvls)
+                else:
+                    max_normal = max(max_normal, lvls)
+        lang_stats[lang] = {'max_normal': max_normal, 'max_pro': max_pro}
+
+    # Assign language badge
+    def lang_badge(stats):
+        mn, mp = stats['max_normal'], stats['max_pro']
+        if mp >= 6:
+            return {'name': 'Elite',    'icon': '⚡', 'color': '#00d4ff', 'level': 5}
+        if mp >= 1:
+            return {'name': 'Veteran',  'icon': '🔴', 'color': '#ff4d6d', 'level': 4}
+        if mn >= 6:
+            return {'name': 'Defender', 'icon': '🟡', 'color': '#ffd60a', 'level': 3}
+        if mn >= 3:
+            return {'name': 'Cadet',    'icon': '🟢', 'color': '#39ff8f', 'level': 2}
+        if mn >= 1:
+            return {'name': 'Initiate', 'icon': '🔵', 'color': '#4a8fff', 'level': 1}
+        return      {'name': 'Recruit', 'icon': '⬡',  'color': '#4a6080', 'level': 0}
+
+    lang_badges = {lang: lang_badge(lang_stats[lang]) for lang in langs}
+    badge_levels = [lang_badges[l]['level'] for l in langs]
+
+    if all(int(b) >= 4 for b in badge_levels):
+        g = {'name': 'Legendary', 'icon': '💎', 'color': '#ffffff',  'tier': 5}
+    elif all(int(b) >= 3 for b in badge_levels):
+        g = {'name': 'Elite',     'icon': '⚡', 'color': '#00d4ff',  'tier': 4}
+    elif any(int(b) >= 3 for b in badge_levels):
+        g = {'name': 'Defender',  'icon': '🟡', 'color': '#ffd60a',  'tier': 3}
+    elif any(int(b) >= 1 for b in badge_levels):
+        g = {'name': 'Cadet',     'icon': '🟢', 'color': '#39ff8f',  'tier': 2}
+    else:
+        g = {'name': 'Recruit',   'icon': '🔵', 'color': '#4a8fff',  'tier': 1}
+
+    return {'lang_badges': lang_badges, 'global_rank': g}
+
 # --- CLASSIC MODE (Keywords) ---
 CLASSIC_DATA = {   'c': [   {   'id': 1,
                  'tip': 'SEC 1: TYPES',
@@ -292,17 +360,15 @@ CLASSIC_DATA = {   'c': [   {   'id': 1,
                       'words': [   {   'display': 'if',
                                        'target': 'if',
                                        'type': 'standard'},
-                                   {   'display': '___',
-                                       'hint': '[ Else if ]',
+                                   {   'display': 'elif',
                                        'target': 'elif',
-                                       'type': 'sniper'},
+                                       'type': 'standard'},
                                    {   'display': 'else',
                                        'target': 'else',
                                        'type': 'standard'},
-                                   {   'display': '______ i in range(5):',
-                                       'hint': '[ Create a loop ]',
+                                   {   'display': 'for',
                                        'target': 'for',
-                                       'type': 'sniper'},
+                                       'type': 'standard'},
                                    {   'display': 'while',
                                        'target': 'while',
                                        'type': 'standard'},
@@ -314,10 +380,9 @@ CLASSIC_DATA = {   'c': [   {   'id': 1,
                                    {   'display': 'continue',
                                        'target': 'continue',
                                        'type': 'standard'},
-                                   {   'display': '____',
-                                       'hint': '[ Get user input ]',
+                                   {   'display': 'input',
                                        'target': 'input',
-                                       'type': 'sniper'}]},
+                                       'type': 'standard'}]},
                   {   'id': 3,
                       'tip': 'SEC 3: MEMORY BANKS',
                       'words': [   {   'display': 'append',
@@ -658,21 +723,40 @@ def login():
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM users WHERE username=%s", (username,))
         user = cursor.fetchone()
-        conn.close()
 
         if user and check_password_hash(user['password'], password):
-            session['user_id'] = user['id']
+            user_id = user['id']
+            session['user_id'] = user_id
             session['username'] = user['username']
+            
+            # FETCH LIVE SESSION DATA ON LOGIN
+            # 1. Total Score
+            cursor.execute("SELECT SUM(score) as total FROM scores WHERE user_id=%s", (user_id,))
+            total_score = cursor.fetchone()['total'] or 0
+            
+            # 2. Current Ranks/Badges
+            cursor.execute("SELECT language, current_task FROM progress WHERE user_id=%s", (user_id,))
+            progress_rows = cursor.fetchall()
+            ranks = compute_ranks(progress_rows)
+            
+            conn.close() # Close connection after all operations are done
             return jsonify({
                 "status": "success",
                 "username": user['username'],
                 "full_name": user.get('full_name', ''),
                 "occupation": user.get('occupation', 'Defender'),
                 "email": user.get('email', ''),
+                "total_score": int(total_score),
+                "global_rank": ranks['global_rank'],
+                "lang_badges": ranks['lang_badges'],
                 "is_admin": False
             })
+        
+        conn.close()
         return jsonify({"status": "fail", "message": "Access Denied"})
     except Exception as e:
+        if 'conn' in locals() and conn.is_connected():
+            conn.close()
         return jsonify({"status": "error", "message": f"Database Error: {str(e)}"})
 
 
@@ -710,12 +794,7 @@ def register():
     except Exception as e:
         return jsonify({"status": "fail", "message": f"Registration Error: {str(e)}"})
 
-def get_db_lang(lang, mode, difficulty):
-    # Compresses strings into 6 characters to stay within safety limits
-    l_prefix = lang[:2].lower()
-    m_prefix = mode[:1].lower()
-    d_prefix = difficulty[:1].lower()
-    return f"{l_prefix}_{m_prefix}_{d_prefix}"
+
 
 @app.route('/api/get_task/<language>', methods=['GET'])
 def get_task(language):
@@ -727,22 +806,24 @@ def get_task(language):
     db_lang = get_db_lang(language, game_mode, difficulty)
     user_id = session['user_id']
 
-    # ── DB: fetch/init progress with guaranteed connection close ──────────
+    # ── DB: fetch/init progress (Bypass for Admin ID 0) ────────────────────
     task_index = 1
-    try:
-        conn = get_db()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT current_task FROM progress WHERE user_id=%s AND language=%s", (user_id, db_lang))
-        row = cursor.fetchone()
-        if row:
-            task_index = row['current_task']
-        else:
-            cursor.execute("INSERT INTO progress (user_id, language, current_task) VALUES (%s, %s, 1)", (user_id, db_lang))
-            conn.commit()
-    except Exception as e:
-        return jsonify({"error": f"Database Error: {str(e)}"}), 500
-    finally:
-        conn.close()
+    if user_id != 0:
+        try:
+            conn = get_db()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT current_task FROM progress WHERE user_id=%s AND language=%s", (user_id, db_lang))
+            row = cursor.fetchone()
+            if row:
+                task_index = row['current_task']
+            else:
+                cursor.execute("INSERT INTO progress (user_id, language, current_task) VALUES (%s, %s, 1)", (user_id, db_lang))
+                conn.commit()
+        except Exception as e:
+            return jsonify({"error": f"Database Error: {str(e)}"}), 500
+        finally:
+            if 'conn' in locals():
+                conn.close()
 
     # Override level if requested
     if req_level and req_level > 0:
@@ -862,6 +943,15 @@ def get_task(language):
     # Use modulo so it wraps correctly on repeated play
     concept_idx = ((task_index - 1) % 6) + 1
     nexus_meta = lang_concepts.get(concept_idx, {'concept': 'general', 'weapon_hint': 'any', 'concept_title': f'LEVEL {task_index}'})
+    
+    if game_mode == 'classic':
+        # FINAL SANITIZATION: Forcefully strip any items that are corrupt, non-standard, or have hints.
+        # This acts as a catch-all safety net that runs AFTER all difficulty/randomization logic.
+        content = [item for item in content if not item.get('isCorrupt') and not item.get('hint') and item.get('type') == 'standard']
+        # Explicitly ensure nothing surviving has an accidental corruption flag
+        for item in content:
+            item["isCorrupt"] = False
+            item["corrupt"] = False
 
     return jsonify({
         "game_complete": False,
@@ -983,6 +1073,7 @@ def complete_level():
     level_id = int(data.get('level_id', 1))
     db_lang = get_db_lang(language, mode, difficulty)
     user_id = session['user_id']
+    # ── DB: Complete Level (Bypass for Admin ID 0) ────────────────────────
     if user_id == 0:
         return jsonify({"status": "success", "rank": None})
     try:
@@ -1025,6 +1116,7 @@ def update_score():
     difficulty = data.get('difficulty', 'normal')
     db_lang = get_db_lang(language, mode, difficulty)
     user_id = session['user_id']
+    # ── DB: Update Score (Bypass for Admin ID 0) ──────────────────────────
     if user_id == 0:
         return jsonify({"status": "success", "total_score": points})
     try:
@@ -1352,71 +1444,77 @@ def get_admin_users():
 
 @app.route('/api/sandbox', methods=['POST'])
 def sandbox_execute():
-    """Locally executes Python, Java, or C code."""
     data = request.json
     language = data.get('language', 'python')
     code = data.get('code', '')
     
-    import subprocess
-    import tempfile
+    import urllib.request
+    import json
+    import time
     
     stdout = ""
     stderr = ""
     compileErr = ""
     
+    # Map frontend IDs to Paiza IDs
+    lang_map = {
+        'python': 'python3',
+        'java': 'java',
+        'c': 'c'
+    }
+    
+    paiza_lang = lang_map.get(language)
+    if not paiza_lang:
+        return jsonify({"stdout": "", "stderr": f"Unsupported language: {language}", "compileErr": ""})
+
+    # JAVA CLOUD FIX: Cloud runners (Paiza) typically expect 'Main.java' in the root.
+    # We must strip 'package' declarations and rename the primary class to 'Main'.
+    if language == 'java':
+        import re
+        # Remove package declarations
+        code = re.sub(r'package\s+[\w\.]+;', '', code)
+        # Replaces 'public class MyClass' or 'class MyClass' with 'public class Main'
+        code = re.sub(r'(?:public\s+)?class\s+\w+', 'public class Main', code, count=1)
+    
+    # C/C++ source code often requires a trailing newline to avoid compiler warnings
+    if language in ['c', 'cpp'] and not code.endswith('\n'):
+        code += '\n'
+
     try:
-        if language == 'python':
-            result = subprocess.run(['python', '-c', code], capture_output=True, text=True, timeout=5)
-            stdout = result.stdout
-            stderr = result.stderr
-            
-        elif language == 'java':
-            with tempfile.TemporaryDirectory() as tmpdir:
-                java_file = os.path.join(tmpdir, "Main.java")
-                with open(java_file, "w") as f:
-                    f.write(code)
-                
-                # Compile
-                comp = subprocess.run(['javac', java_file], capture_output=True, text=True, timeout=5)
-                if comp.returncode != 0:
-                    compileErr = comp.stderr
-                else:
-                    # Run
-                    run_result = subprocess.run(['java', '-cp', tmpdir, 'Main'], capture_output=True, text=True, timeout=5)
-                    stdout = run_result.stdout
-                    stderr = run_result.stderr
-                    
-        elif language == 'c':
-            with tempfile.TemporaryDirectory() as tmpdir:
-                c_file = os.path.join(tmpdir, "main.c")
-                exe_file = os.path.join(tmpdir, "main")
-                with open(c_file, "w") as f:
-                    f.write(code)
-                
-                # Compile
-                comp = subprocess.run(['gcc', c_file, '-o', exe_file], capture_output=True, text=True, timeout=5)
-                if comp.returncode != 0:
-                    compileErr = comp.stderr
-                else:
-                    # Run
-                    run_result = subprocess.run([exe_file], capture_output=True, text=True, timeout=5)
-                    stdout = run_result.stdout
-                    stderr = run_result.stderr
+        url_create = "https://api.paiza.io/runners/create"
+        p_create = {"source_code": code, "language": paiza_lang, "api_key": "guest"}
+        
+        # 1. Create Runner
+        req = urllib.request.Request(url_create, data=json.dumps(p_create).encode('utf-8'), headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            run_id = json.loads(r.read()).get('id')
+        
+        if run_id:
+            # 2. Poll for Result
+            completed = False
+            for _ in range(10):
+                time.sleep(0.5)
+                url_get = f"https://api.paiza.io/runners/get_details?id={run_id}&api_key=guest"
+                with urllib.request.urlopen(url_get, timeout=5) as r2:
+                    res2 = json.loads(r2.read())
+                    if res2.get('status') == 'completed':
+                        stdout = res2.get('stdout', '')
+                        stderr = res2.get('stderr', '')
+                        compileErr = res2.get('build_stderr', '')
+                        completed = True
+                        break
+            if not completed:
+                stderr = "Execution timed out (Cloud API)."
         else:
-            stderr = f"Unsupported language: {language}"
+            stderr = "Cloud API Error: Failed to initialize runner."
             
-    except subprocess.TimeoutExpired:
-        stderr = "Execution timed out (5s limit)."
+        return jsonify({
+            "stdout": str(stdout or "").strip(),
+            "stderr": str(stderr or "").strip(),
+            "compileErr": str(compileErr or "").strip()
+        })
     except Exception as e:
-        stderr = f"Execution engine error: {str(e)}"
-        if 'No such file or directory' in str(e) or 'not found' in str(e).lower():
-            stderr += f"\nNote: Ensure {language} compiler/runtime is installed on the server."
-            
-    return jsonify({
-        "stdout": stdout,
-        "stderr": stderr,
-        "compileErr": compileErr
-    })
+        return jsonify({"stdout": "", "stderr": str(e), "compileErr": ""})
 
 if __name__ == '__main__':
     app.run(debug=True)

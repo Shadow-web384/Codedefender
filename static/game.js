@@ -214,108 +214,187 @@ async function apiFetch(path, opts = {}) {
 }
 window.apiFetch = apiFetch;
 
-window.goTo = function(id) {
+window.goTo = function (id) {
   console.log('⚡ ENGINE: Navigate →', id);
   // Screen transition
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const target = document.getElementById(id);
   if (target) target.classList.add('active');
-  
+
   if (typeof closeAllDD === 'function') closeAllDD();
 
   // Audio scenario switching
-  try { if (typeof playTrackForScreen === 'function') playTrackForScreen(id); } catch(e){}
-  
+  try { if (typeof playTrackForScreen === 'function') playTrackForScreen(id); } catch (e) { }
+
   // Wormhole effect mode change
   const isGame = (id === 'screen-game');
   try { if (window.WH) window.WH.setGameMode(isGame); } catch (e) { }
 
+  // Update Navigation Header Status
+  const statusElements = document.querySelectorAll('#idleStatus, #goStatus');
+  const sectorStatus = document.getElementById('idleSectorStatus');
+  statusElements.forEach(statusVal => {
+    if (isGame) {
+      statusVal.textContent = 'IN MISSION';
+      statusVal.classList.add('in-mission');
+    } else {
+      statusVal.textContent = 'ONLINE';
+      statusVal.classList.remove('in-mission');
+    }
+  });
+  if (sectorStatus) {
+    sectorStatus.textContent = isGame ? 'STATUS: ACTIVE MISSION' : 'STATUS: IDLE';
+    sectorStatus.classList.toggle('engaged', isGame);
+    sectorStatus.classList.toggle('idle', !isGame);
+  }
+
   // Game initialization / exit logic
   if (id === 'screen-game') {
-     setTimeout(() => {
-        const inp = (GS.mode === 'classic') ? document.getElementById('classicInput') : document.getElementById('cmdInputField');
-        if (inp) inp.focus();
-     }, 350);
+    setTimeout(() => {
+      const inp = (GS.mode === 'classic') ? document.getElementById('classicInput') : document.getElementById('cmdInputField');
+      if (inp) inp.focus();
+    }, 350);
   } else if (id === 'screen-idle') {
-     try { if (typeof wizardReset === 'function') wizardReset(); } catch (e) { }
+    try { if (typeof wizardReset === 'function') wizardReset(); } catch (e) { }
   } else if (id === 'screen-gameover') {
-     syncUI();
-     const titleEl = document.getElementById('gameoverTitle');
-     const tagEl = document.getElementById('gameoverTag');
-     const subEl = document.querySelector('.gameover-sub');
-     
-     if (_missionSuccess) {
-         if (titleEl) { 
-             titleEl.innerHTML = "<span style='color:#39ff8f'>LEVEL CLEARED</span>"; 
-             titleEl.style.textShadow = "0 0 20px rgba(57,255,143,0.8)"; 
-         }
-         if (tagEl) { tagEl.innerHTML = "<span style='color:#39ff8f'>/// AREA SECURED ///</span>"; }
-         if (subEl) subEl.textContent = "Target sequence completely destroyed";
-     } else {
-         if (titleEl) { 
-             titleEl.innerHTML = "<span style='color:#ff4d6d'>GAME OVER</span>"; 
-             titleEl.style.textShadow = "0 0 20px rgba(255,77,109,0.8)"; 
-         }
-         if (tagEl) { tagEl.innerHTML = "<span style='color:#ff4d6d'>/// SYSTEM BREACH DETECTED ///</span>"; }
-         if (subEl) subEl.textContent = "System defenses have been compromised";
-     }
+    syncUI();
+    const titleEl = document.getElementById('gameoverTitle');
+    const tagEl = document.getElementById('gameoverTag');
+    const subEl = document.querySelector('.gameover-sub');
 
-     const goLvl = document.getElementById('goLvlVal');
-     if (goLvl) goLvl.textContent = GS.levelId;
-     const goRank = document.getElementById('goRankVal');
-     if (goRank && GS.rank) goRank.innerHTML = GS.rank.icon + ' ' + GS.rank.name.toUpperCase();
-     
-     const goMode = document.getElementById('goModeVal');
-     if (goMode) goMode.textContent = GS.mode ? GS.mode.toUpperCase() : 'CLASSIC';
-     const goDiff = document.getElementById('goDiffVal');
-     if (goDiff) goDiff.textContent = GS.difficulty ? (GS.difficulty.charAt(0).toUpperCase() + GS.difficulty.slice(1)) : 'Normal';
-     
-     const ptsWrap = document.getElementById('sessionScoreWrap');
-     if (ptsWrap) {
-       ptsWrap.querySelector('.pts-text').textContent = "Session Score";
-       const scoreDisp = ptsWrap.querySelector('#sessionScoreDisplay');
-       if (scoreDisp) scoreDisp.textContent = GS.sessionScore || 0;
-     }
+    if (_missionSuccess) {
+      if (titleEl) {
+        // 1. Set the text to a vibrant, single green color (#39ff8f)
+        titleEl.innerHTML = "<span style='color:#39ff8f; font-weight: bold;'>LEVEL CLEARED</span>";
+        // 2. Add a simple, matching green glow (rgba)
+        titleEl.style.textShadow = "0 0 20px rgba(57, 255, 143, 0.8)";
+      }
+      // Make the surrounding text neutral white like in the original image for contrast
+      if (tagEl) {
+        tagEl.innerHTML = "<span style='color:#ffffff'>/// AREA SECURED ///</span>";
+      }
+      if (subEl) {
+        subEl.textContent = "Target sequence completely destroyed";
+      }
+    } else {
+      if (titleEl) {
+        titleEl.innerHTML = "<span style='color:#ff4d6d'>GAME OVER</span>";
+        titleEl.style.textShadow = "0 0 20px rgba(255,77,109,0.8)";
+      }
+      if (tagEl) { tagEl.innerHTML = "<span style='color:#ff4d6d'>/// SYSTEM BREACH DETECTED ///</span>"; }
+      if (subEl) subEl.textContent = "System defenses have been compromised";
+    }
 
-     const nextBtn = document.getElementById('nextLevelBtn');
-     const retryBtn = document.getElementById('retryMissionBtn');
-     const replayBtn = document.getElementById('replayLevelBtn');
-     if (_missionSuccess && _isLevelClear) {
-       // Level cleared: show Replay Level + Next Level; hide Retry
-       if (nextBtn)  nextBtn.style.display  = 'inline-block';
-       if (replayBtn) replayBtn.style.display = 'inline-block';
-       if (retryBtn) retryBtn.style.display  = 'none';
-     } else {
-       // Game over: show Retry; hide Next Level + Replay
-       if (nextBtn)  nextBtn.style.display  = 'none';
-       if (replayBtn) replayBtn.style.display = 'none';
-       if (retryBtn) retryBtn.style.display  = 'inline-block';
-     }
+    const goLvl = document.getElementById('goLvlVal');
+    if (goLvl) goLvl.textContent = GS.levelId;
+    const goRank = document.getElementById('goRankVal');
+    if (goRank && GS.globalRank) goRank.innerHTML = GS.globalRank.icon + ' ' + GS.globalRank.name.toUpperCase();
+
+    const goSectorSpan = document.getElementById('goSectorSpan');
+    if (goSectorSpan) goSectorSpan.textContent = 'SECTOR: ' + (GS.language ? GS.language.toUpperCase() : 'UNKNOWN');
+    const goLvlSpan = document.getElementById('goLvlSpan');
+    if (goLvlSpan) goLvlSpan.textContent = 'LVL ' + GS.levelId;
+    const goSecSpan = document.getElementById('goSecSpan');
+    if (goSecSpan) goSecSpan.textContent = GS.levelTip ? GS.levelTip : '';
+
+    const goMode = document.getElementById('goModeVal');
+    if (goMode) goMode.textContent = GS.mode ? GS.mode.toUpperCase() : 'CLASSIC';
+    const goDiff = document.getElementById('goDiffVal');
+    if (goDiff) goDiff.textContent = GS.difficulty ? (GS.difficulty.charAt(0).toUpperCase() + GS.difficulty.slice(1)) : 'Normal';
+
+    const ptsWrap = document.getElementById('sessionScoreWrap');
+    if (ptsWrap) {
+      ptsWrap.querySelector('.pts-text').textContent = "Session Score";
+      const scoreDisp = ptsWrap.querySelector('#sessionScoreDisplay');
+      if (scoreDisp) scoreDisp.textContent = GS.sessionScore || 0;
+    }
+
+    const nextBtn = document.getElementById('nextLevelBtn');
+    const retryBtn = document.getElementById('retryMissionBtn');
+    const replayBtn = document.getElementById('replayLevelBtn');
+    if (_missionSuccess && _isLevelClear) {
+      // Level cleared: show Replay Level + Next Level; hide Retry
+      if (nextBtn) nextBtn.style.display = 'inline-block';
+      if (replayBtn) replayBtn.style.display = 'inline-block';
+      if (retryBtn) retryBtn.style.display = 'none';
+    } else {
+      // Game over: show Retry; hide Next Level + Replay
+      if (nextBtn) nextBtn.style.display = 'none';
+      if (replayBtn) replayBtn.style.display = 'none';
+      if (retryBtn) retryBtn.style.display = 'inline-block';
+    }
   }
   // HUD nav lockout logic
   const hudOverlay = document.querySelector('.game-hud-overlay');
   if (hudOverlay) hudOverlay.classList.toggle('game-nav-locked', id === 'screen-game');
 };
 
-window.syncUI = function() {
+window.syncUI = function () {
   document.querySelectorAll('[id$="Cmdr"]').forEach(el => el.textContent = GS.username || '—');
-  document.querySelectorAll('#idleScore').forEach(el => el.textContent = GS.totalScore || 0);
+  document.querySelectorAll('#idleScore, #goScore').forEach(el => el.textContent = GS.totalScore || 0);
   if (document.getElementById('hudPtsVal')) document.getElementById('hudPtsVal').textContent = GS.score || 0;
-  
+
   document.querySelectorAll('.profile-handle').forEach(el => {
     if (el.id !== 'viewedHandle') el.textContent = GS.username || 'Defender';
   });
   if (document.getElementById('profileTotalPoints')) document.getElementById('profileTotalPoints').textContent = GS.totalScore || 0;
+  if (document.getElementById('profileStatTotal')) document.getElementById('profileStatTotal').textContent = GS.totalScore || 0;
+  if (document.getElementById('profileStatWords')) document.getElementById('profileStatWords').textContent = GS._wordsTyped || 0;
+  if (document.getElementById('profileStatAccuracy')) document.getElementById('profileStatAccuracy').textContent = (GS._accuracy || 0) + '%';
+  if (document.getElementById('profileStatSessions')) {
+    // Count total unique levels completed across all modes as a proxy for 'progress'
+    let totalCleared = 0;
+    if (GS.completedLevels) {
+      Object.keys(GS.completedLevels).forEach(k => totalCleared += GS.completedLevels[k].length);
+    }
+    document.getElementById('profileStatSessions').textContent = totalCleared || 0;
+  }
+
+  // Update Rank badges in header/profile
+  if (GS.globalRank) {
+    document.querySelectorAll('.rank-badge-hud').forEach(el => {
+      el.innerHTML = GS.globalRank.icon + ' ' + GS.globalRank.name.toUpperCase();
+    });
+  }
+
+  // Update Career Achievements
+  if (GS.completedLevels) {
+    const pyLevels = new Set();
+    const jaLevels = new Set();
+    Object.keys(GS.completedLevels).forEach(k => {
+      if (k.startsWith('python_')) GS.completedLevels[k].forEach(l => pyLevels.add(l));
+      if (k.startsWith('java_')) GS.completedLevels[k].forEach(l => jaLevels.add(l));
+    });
+
+    const pyCount = pyLevels.size;
+    const jaCount = jaLevels.size;
+
+    const pyFill = document.getElementById('ach-python-fill');
+    const pyBadge = document.getElementById('ach-python-badge');
+    if (pyFill) pyFill.style.width = Math.min(100, (pyCount / 5) * 100) + '%';
+    if (pyBadge) {
+      pyBadge.textContent = `${pyCount}/5`;
+      pyBadge.classList.toggle('locked', pyCount < 5);
+    }
+
+    const jaFill = document.getElementById('ach-java-fill');
+    const jaBadge = document.getElementById('ach-java-badge');
+    if (jaFill) jaFill.style.width = Math.min(100, (jaCount / 5) * 100) + '%';
+    if (jaBadge) {
+      jaBadge.textContent = `${jaCount}/5`;
+      jaBadge.classList.toggle('locked', jaCount < 5);
+    }
+  }
 };
 
-window.updateBreadcrumb = function(id) {
+window.updateBreadcrumb = function (id) {
   const b = document.getElementById('wizard-breadcrumb');
   if (!b) return;
-  const labels = { 
-    'step-mode': '01 — SELECT MODE', 
-    'step-diff': '02 — SELECT DIFFICULTY', 
-    'step-lang': '03 — SELECT LANGUAGE', 
-    'step-level': '04 — MISSION DETAILS' 
+  const labels = {
+    'step-mode': '01 — SELECT MODE',
+    'step-diff': '02 — SELECT DIFFICULTY',
+    'step-lang': '03 — SELECT LANGUAGE',
+    'step-level': '04 — MISSION DETAILS'
   };
   b.textContent = labels[id] || 'MISSION SETUP';
 };
@@ -369,7 +448,7 @@ document.addEventListener('keydown', e => {
   if (blockedKeys.includes(e.key)) {
     e.preventDefault(); e.stopPropagation();
   }
-}, { capture: true }); 
+}, { capture: true });
 
 // ═══════════════════════════════════════════════════════════════
 //  GAME ENGINE — variables & core loop
@@ -437,15 +516,45 @@ function destroyWord(el) {
 
 function finishDestroyWord(el) {
   const isDanger = el.classList.contains('danger');
-  if (typeof apiAddPoints === 'function') apiAddPoints(10);
   lastShotTime = Date.now();
-  el.style.animation = 'destroy-flash 0.35s ease-out forwards';
+
+  // Calculate points first so we can show them
+  const pts = isDanger ? 20 : 10;
+
+  // Attach a floating score label onto the element itself
+  const ptLabel = document.createElement('span');
+  ptLabel.textContent = '+' + pts;
+  ptLabel.style.cssText = 'position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-family:Orbitron,monospace;font-size:11px;font-weight:700;color:#39ff8f;text-shadow:0 0 8px rgba(57,255,143,0.9);pointer-events:none;white-space:nowrap;';
+  el.style.position = 'relative';
+  el.appendChild(ptLabel);
+
+  // Fly upward (away from ship at bottom) and fade out
+  const canvas = document.getElementById('gameCanvas');
+  const canvasRect = canvas.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const currentTop = elRect.top - canvasRect.top;
+
+  el.style.animationPlayState = 'paused';
+  el.style.transition = 'top 0.45s ease-out, opacity 0.45s ease-out';
+  el.style.position = 'absolute';
+  el.style.top = currentTop - 50;
+  el.style.opacity = '1';
+
+  // Trigger upward flight on next frame
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      el.style.top = (currentTop - 170) + 100;
+      el.style.opacity = '0';
+    });
+  });
+
   setTimeout(() => {
     el.remove();
+    if (typeof apiAddPoints === 'function') apiAddPoints(pts, false, null);
     if (document.querySelectorAll('.word-fall:not([data-destroyed])').length === 0) {
       window.onLevelComplete();
     }
-  }, 350);
+  }, 460);
 }
 
 function abortMission() {
@@ -477,17 +586,17 @@ setInterval(checkBreach, 150);
 async function onLevelComplete() {
   if (_levelCompleting) return;
   _levelCompleting = true;
-  
+
   // Calculate bonus points
   const bonus = 100;
-  if (typeof apiAddPoints === 'function') await apiAddPoints(bonus, true); 
-  
+  if (typeof apiAddPoints === 'function') await apiAddPoints(bonus, true);
+
   const scoreEl = document.getElementById('gameScore');
   if (scoreEl) scoreEl.textContent = Math.max(0, GS.sessionScore);
 
   GS._accuracy = GS._keysTotal ? Math.round((GS._keysHit / GS._keysTotal) * 100) : 100;
   GS._elapsed = GS._startTime ? Math.round((Date.now() - GS._startTime) / 1000) + 's' : '0s';
-  
+
   // ── The real rank call ── records the level clear server-side & gets updated ranks
   const rankData = await apiFetch('/api/complete_level', {
     method: 'POST',
@@ -517,18 +626,16 @@ async function onLevelComplete() {
     localStorage.setItem(`codeDefender_${GS.username}_completed`, JSON.stringify(GS.completedLevels));
   }
 
-  // Advance level ID
-  GS.levelId++;
-
-  // Fetch next level data
+  // Fetch next level data (X + 1)
+  const nextLevel = GS.levelId + 1;
   const data = await apiFetch(
-    `/get_task/${GS.language}?mode=${GS.mode}&difficulty=${GS.difficulty}`
+    `/get_task/${GS.language}?mode=${GS.mode}&difficulty=${GS.difficulty}&level=${nextLevel}`
   );
   _nextLevelData = data.game_complete ? null : data;
 
   _missionSuccess = true;
   _gameOver = true;
-  _isLevelClear = !!_nextLevelData; 
+  _isLevelClear = !!_nextLevelData;
 
   // Auto-open Split-Pane Terminal Modal before victory screen
   if (typeof openIOModal === 'function') {
@@ -581,7 +688,7 @@ async function advanceToNextLevel() {
   updateTargetHUD(null);
   // Remove any stale .active-target highlights from previous wave
   document.querySelectorAll('.active-target').forEach(el => el.classList.remove('active-target'));
-  
+
   // Transition back to game cockpit and spawn fresh data
   spawnWords(GS.words, true); // true = level advance
   goTo('screen-game');
@@ -639,7 +746,7 @@ function clearTyped() {
 // ── EDUCATIONAL HUD HELPER ─────────────────────────────────────────
 // Updates the #activeTargetHUD span with the current target keyword + hint.
 // Call with null/undefined to reset to STANDBY state.
-window.updateTargetHUD = function(wordObj) {
+window.updateTargetHUD = function (wordObj) {
   const el = document.getElementById('activeTargetHUD');
   if (!el) return;
   if (!wordObj) {
@@ -651,7 +758,7 @@ window.updateTargetHUD = function(wordObj) {
   }
   // Build display: target // hint (hint is optional)
   const keyword = wordObj.target || wordObj.orig || '';
-  const hint    = wordObj.hint  || (wordObj.el && wordObj.el.dataset && wordObj.el.dataset.hint) || null;
+  const hint = wordObj.hint || (wordObj.el && wordObj.el.dataset && wordObj.el.dataset.hint) || null;
   el.textContent = hint ? `${keyword} // ${hint}` : keyword;
   el.style.color = '#ffff00';
   el.style.textShadow = '0 0 8px rgba(255,255,0,0.6)';
@@ -744,8 +851,15 @@ if (classicInput) {
       // No match — flash red, then clear so next keypress starts fresh
       GS._currentCombo = 0;
       showTyped(typedRaw, false);
+
+      const shouldFlash = document.getElementById('set-error-flash')?.checked !== false;
+      if (shouldFlash) {
+        document.body.classList.add('error-flash');
+        setTimeout(() => document.body.classList.remove('error-flash'), 150);
+      }
+
       if (typeDisplay) {
-        if(document.getElementById('set-error-flash')?.checked !== false) typeDisplay.classList.add('wrong');
+        if (shouldFlash) typeDisplay.classList.add('wrong');
         setTimeout(() => {
           typeDisplay.classList.remove('wrong');
           typeDisplay.textContent = '';
@@ -778,6 +892,12 @@ if (classicInput) {
 const cmdInput = document.getElementById('cmdInputField');
 
 function flashInputError() {
+  const shouldFlash = document.getElementById('set-error-flash')?.checked !== false;
+  if (shouldFlash) {
+    document.body.classList.add('error-flash');
+    setTimeout(() => document.body.classList.remove('error-flash'), 150);
+  }
+
   if (!cmdInput) return;
   cmdInput.style.color = '#ff3131';
   cmdInput.style.textShadow = '0 0 8px rgba(255,49,49,0.8)';
@@ -1109,12 +1229,12 @@ function showRoster() {
 async function renderRoster() {
   const rosterList = document.getElementById('rosterList');
   if (!rosterList) return;
-  
+
   rosterList.innerHTML = '<div style="padding:40px;text-align:center;color:var(--dim);font-family:var(--hud-mono);font-size:10px;">LOADING DEFENDER DATA...</div>';
-  
+
   const data = await apiFetch('/leaderboard_all');
   rosterList.innerHTML = '';
-  
+
   if (!data.leaderboard || data.leaderboard.length === 0) {
     rosterList.innerHTML = '<div style="padding:40px;text-align:center;color:var(--dim);font-family:var(--hud-mono);">NO SIGNALS DETECTED</div>';
     return;
@@ -1125,21 +1245,21 @@ async function renderRoster() {
 
   data.leaderboard.forEach((user, index) => {
     // Generate realistic-sounding mock stats for the demo if real stats aren't available
-    const score = (1000 - index * 50) > 0 ? (1000 - index * 50) : 50; 
+    const score = (1000 - index * 50) > 0 ? (1000 - index * 50) : 50;
     const sessions = Math.max(1, 20 - index);
     const keywords = score * 2;
     const acc = Math.max(60, 98 - index) + '%';
-    const combo = '×' + Math.max(2, 15 - Math.floor(index/2));
+    const combo = '×' + Math.max(2, 15 - Math.floor(index / 2));
     const isOnline = index < 3;
-    
+
     // We only get basic data from leaderboard_all right now, so we flesh it out for the UI
     const row = document.createElement('div');
     row.className = 'roster-row';
     row.onclick = () => viewDefenderProfile(index, score, sessions, keywords, acc, combo, isOnline);
-    
+
     // Basic formatting based on global rank tier
     const gr = user.global_rank;
-    
+
     row.innerHTML = `
       <div class="roster-avatar">${gr.icon}</div>
       <div class="roster-info">
@@ -1157,7 +1277,7 @@ async function renderRoster() {
 function viewDefenderProfile(userIndex, score, sessions, kw, acc, combo, online) {
   const user = window._currentRosterData[userIndex];
   if (!user) return;
-  
+
   const name = user.username;
   const gr = user.global_rank;
 
@@ -1168,22 +1288,22 @@ function viewDefenderProfile(userIndex, score, sessions, kw, acc, combo, online)
   document.getElementById('profileBackBtn').style.display = 'flex';
   document.getElementById('profileModalTitle').innerHTML = `<span class="modal-title-icon">◉</span>${name.toUpperCase()}`;
   document.getElementById('profileFooter').textContent = "Read-only — you cannot edit another defender's profile";
-  
+
   // Populate avatar and basic info
   document.getElementById('viewedAvatarIcon').textContent = gr.icon;
   const vHandle = document.getElementById('viewedHandle');
   vHandle.textContent = name;
   vHandle.style.color = gr.color;
-  
+
   const vRank = document.getElementById('viewedRank');
   vRank.textContent = `▸ RANK: ${gr.name.toUpperCase()} ◂`;
   vRank.style.color = gr.color;
-  
+
   document.getElementById('viewedOccupation').textContent = 'Defender';
   const statusEl = document.getElementById('viewedStatus');
   statusEl.textContent = online ? 'ONLINE' : 'OFFLINE';
   statusEl.style.color = online ? 'var(--aurora)' : 'var(--dim)';
-  
+
   // Mock stats
   document.getElementById('vs-score').textContent = score;
   document.getElementById('vs-sessions').textContent = sessions;
@@ -1192,7 +1312,7 @@ function viewDefenderProfile(userIndex, score, sessions, kw, acc, combo, online)
   document.getElementById('vs-combo').textContent = combo;
   document.getElementById('vs-time').textContent = Math.floor(sessions * 1.5) + 'h ' + (sessions * 12 % 60) + 'm';
   document.getElementById('vs-levels').textContent = Math.floor(score / 50);
-  
+
   // Populate Language Badges
   if (user.lang_badges) {
     ['python', 'java', 'c'].forEach(lang => {
@@ -1449,7 +1569,7 @@ function updateRankDisplay() {
   }
   // Profile lang badges
   if (GS.langBadges) {
-    ['python','java','c'].forEach(lang => {
+    ['python', 'java', 'c'].forEach(lang => {
       const b = GS.langBadges[lang];
       if (!b) return;
       const el = document.getElementById(`langBadge_${lang}`);
@@ -1626,11 +1746,17 @@ const MOCK_LEADERBOARD = {
 
 function showError(id, msg) {
   const el = document.getElementById(id);
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  if (el) {
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
 }
 function clearErr(id) {
   const el = document.getElementById(id);
-  if (el) { el.textContent = ''; el.style.display = 'none'; }
+  if (el) {
+    el.textContent = '';
+    el.classList.remove('visible');
+  }
 }
 function setBtn(id, text, disabled) {
   const el = document.getElementById(id);
@@ -1661,12 +1787,17 @@ async function apiLogin() {
     GS.fullName = data.full_name || data.username;
     GS.occupation = data.occupation || 'Defender';
     GS.isAdmin = data.is_admin || false;
+
+    // INSTANT SYNC: Use metadata returned directly in login response
+    GS.totalScore = data.total_score || 0;
+    GS.globalRank = data.global_rank || null;
+    GS.langBadges = data.lang_badges || {};
+
     try {
       GS.completedLevels = JSON.parse(localStorage.getItem(`codeDefender_${GS.username}_completed`)) || {};
-    } catch(e) { GS.completedLevels = {}; }
+    } catch (e) { GS.completedLevels = {}; }
+
     syncUI();
-    await fetchMyScore();
-    await fetchMyRank();
     goTo('screen-idle');
     playUI('confirm');
   } else {
@@ -1679,31 +1810,6 @@ async function apiLogin() {
 async function apiRegister() {
   const full_name = document.getElementById('regFullName').value.trim();
   const occupation = document.getElementById('regOccupation').value.trim();
-  function switchSandboxLang(lang) {
-    sandboxLang = lang;
-    const cfg = SANDBOX_LANGS[lang];
-    if (!cfg) return;
-    // Update tab highlights
-    document.querySelectorAll('.be-sb-lang-btn').forEach(b => {
-      b.style.borderColor = b.dataset.lang === lang ? cfg.color : 'rgba(255,255,255,0.12)';
-      b.style.color = b.dataset.lang === lang ? cfg.color : 'rgba(255,255,255,0.35)';
-      b.style.background = b.dataset.lang === lang ? `${cfg.color}12` : 'transparent';
-    });
-    // Update subtitle
-    const sub = document.querySelector('.be-sb-sub');
-    if (sub) sub.textContent = `${cfg.label.toUpperCase()} · RUNS INSTANTLY IN THE CLOUD · NO LOGIN NEEDED`;
-    // Update the code textarea placeholder to the correct language
-    const ta = document.getElementById('be-sandbox-code');
-    if (ta && !ta.value.trim()) {
-      ta.placeholder = cfg.placeholder;
-    }
-    // Update output color reset
-    const out = document.getElementById('be-sandbox-output');
-    if (out) { out.textContent = '← Output appears here after running'; out.style.color = `${cfg.color}80`; }
-    // Reset run button color
-    const btn = document.getElementById('be-sandbox-run-btn');
-    if (btn) { btn.style.borderColor = `${cfg.color}80`; btn.style.color = cfg.color; btn.style.background = `${cfg.color}12`; }
-  }
   const email = document.getElementById('regEmail').value.trim();
   const username = document.getElementById('regUsername').value.trim();
   const password = document.getElementById('regPassword').value;
@@ -1754,7 +1860,7 @@ async function checkSession() {
     GS.isAdmin = data.is_admin || false;
     try {
       GS.completedLevels = JSON.parse(localStorage.getItem(`codeDefender_${GS.username}_completed`)) || {};
-    } catch(e) { GS.completedLevels = {}; }
+    } catch (e) { GS.completedLevels = {}; }
     syncUI();
     await fetchMyScore();
     await fetchMyRank();
@@ -1831,9 +1937,9 @@ async function apiStartGame(lang, reqLevel = null) {
   const ghoMode = document.getElementById('ghoMode');
   if (ghoMode) ghoMode.textContent = GS.mode === 'builder' ? 'BUILDER MODE' : 'CLASSIC MODE';
 
-  // Hide type-display in builder mode
+  // Hide type-display always
   const td = document.getElementById('typeDisplay');
-  if (td) td.style.display = GS.mode === 'classic' ? '' : 'none';
+  if (td) td.style.display = 'none';
 
   // Reset lives, ship position, and all input state
   lives = 3;
@@ -1992,16 +2098,16 @@ function spawnWords(contentArray, isLevelAdvance = false) {
     if (typeof item === 'string') {
       // Legacy plain string (fallback / AI generator)
       display = item;
-      target  = item;
-      hint    = null;
+      target = item;
+      hint = null;
       taskType = 'standard';
       isCorrupt = false;
     } else {
       // New backend dict format: { display, target, type, hint?, isCorrupt?, word, line, corrupt }
-      display   = item.display || item.word || item.line || String(item);
-      target    = item.target  || display;
-      hint      = item.hint   || null;
-      taskType  = item.type   || 'standard';
+      display = item.display || item.word || item.line || String(item);
+      target = item.target || display;
+      hint = item.hint || null;
+      taskType = item.type || 'standard';
       isCorrupt = item.isCorrupt === true || item.corrupt === true;
     }
 
@@ -2009,11 +2115,11 @@ function spawnWords(contentArray, isLevelAdvance = false) {
     el.className = 'word-fall';
 
     // --- Store datasets for matching and scoring ---
-    el.dataset.display  = display;         // what is rendered (may have ____)
-    el.dataset.target   = target;          // what the player must type (exact match)
+    el.dataset.display = display;         // what is rendered (may have ____)
+    el.dataset.target = target;          // what the player must type (exact match)
     el.dataset.original = target;          // keep for backward-compat with legacy code paths
-    el.dataset.text     = target.toLowerCase(); // for classic prefix matching
-    el.dataset.type     = taskType;
+    el.dataset.text = target.toLowerCase(); // for classic prefix matching
+    el.dataset.type = taskType;
     if (hint) el.dataset.hint = hint;
 
     // --- Render: display text + optional hint sub-label ---
@@ -2042,7 +2148,7 @@ function spawnWords(contentArray, isLevelAdvance = false) {
 
     // Extra class for sniper/debug so we can style differently if desired
     if (taskType === 'sniper') el.classList.add('task-sniper');
-    if (taskType === 'debug')  el.classList.add('task-debug');
+    if (taskType === 'debug') el.classList.add('task-debug');
 
     // --- Positioning / timing ---
     // Use display text length for overflow calc (it may be longer than target)
@@ -2054,10 +2160,10 @@ function spawnWords(contentArray, isLevelAdvance = false) {
     const delay = isBuilder ? (i * 6.5) : (i * Math.max(0.4, 1.1 - delayReduce) + Math.random() * 1.2);
     // Difficulty Multiplier: Pro mode is 25% faster falling (0.8x duration)
     const diffSpeedMult = (GS.difficulty === 'pro') ? 0.8 : 1.0;
-    
+
     // Builder Speed Buff: 10% faster falling base in builder mode
     const builderSpeedMult = (isBuilder && GS.mode === 'builder') ? 0.85 : 1.0;
-    
+
     const finalDur = (dur * builderSpeedMult * diffSpeedMult).toFixed(1);
     el.style.cssText = `left:${leftPct}%;--fall-dur:${finalDur}s;--fall-dist:${fallDist};animation-delay:${delay.toFixed(1)}s;`;
     canvas.appendChild(el);
@@ -2098,7 +2204,7 @@ function spawnWords(contentArray, isLevelAdvance = false) {
     if (!twinkleCanvas) return;
     const gc = document.getElementById('gameCanvas');
     if (!gc) return;
-    twinkleCanvas.width  = gc.offsetWidth;
+    twinkleCanvas.width = gc.offsetWidth;
     twinkleCanvas.height = gc.offsetHeight;
   }
 
@@ -2134,10 +2240,57 @@ function spawnWords(contentArray, isLevelAdvance = false) {
   window.addEventListener('resize', resizeTwinkle);
 })();
 
+function spawnScorePopup(points, sourceEl = null) {
+  if (localStorage.getItem('set-score-popups') === 'false') return;
+  const canvas = document.getElementById('gameCanvas');
+  const ship = document.getElementById('playerShip');
+  if (!canvas || !ship) return;
+
+  let x, y;
+  if (sourceEl) {
+    // Show popup exactly at the word's position
+    const rect = sourceEl.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    x = rect.left - canvasRect.left + (rect.width / 2);
+    y = rect.top - canvasRect.top;
+  } else {
+    // Fallback to ship position (for level bonuses etc)
+    const rect = ship.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const jitterX = (Math.random() * 40) - 20;
+    x = rect.left - canvasRect.left + (rect.width / 2) + jitterX;
+    y = rect.top - canvasRect.top - 20;
+  }
+
+  const popup = document.createElement('div');
+  popup.className = 'score-popup';
+  if (points > 20) popup.classList.add('big-score');
+
+  // If we have a source element, show the keyword alongside the points
+  if (sourceEl) {
+    const keyword = sourceEl.querySelector('.word-display')?.textContent || sourceEl.dataset.text || '';
+    popup.textContent = `${keyword.toUpperCase()} +${points}`;
+    popup.classList.add('keyword-popup');
+  } else {
+    popup.textContent = (points >= 0 ? '+' : '') + points;
+  }
+
+  popup.style.left = x + 'px';
+  popup.style.top = y + 'px';
+  if (points < 0) popup.style.color = '#ff4d6d';
+
+  canvas.appendChild(popup);
+  setTimeout(() => popup.remove(), 850);
+}
+
 // ── SUBMIT SCORE when word destroyed ──────────────────────────
-window.apiAddPoints = async function(points, success = false) {
+window.apiAddPoints = async function (points, success = false, sourceEl = null) {
   GS.sessionScore += points;
   GS.score = Math.max(0, GS.score + points); // never go below 0
+
+  // Trigger floating popup
+  spawnScorePopup(points, sourceEl);
+
   const scoreEl = document.getElementById('gameScore');
   if (scoreEl) scoreEl.textContent = Math.max(0, GS.sessionScore);
   syncUI();
@@ -2162,7 +2315,7 @@ window.apiAddPoints = async function(points, success = false) {
 function calcPoints(isDanger) {
   const base = GS.mode === 'builder' ? 15 : 10;
   let p = isDanger ? base * 2 : base;
-  
+
   // Speed multiplier based on typing CPS
   const elapsedSecs = (Date.now() - (GS._startTime || Date.now())) / 1000;
   const cps = elapsedSecs > 1 ? (GS._keysHit || 0) / elapsedSecs : 0;
@@ -2170,16 +2323,16 @@ function calcPoints(isDanger) {
   if (cps >= 6) speedMult = 3;
   else if (cps >= 4) speedMult = 2;
   else if (cps >= 2.5) speedMult = 1.5;
-  
+
   p = Math.ceil(p * speedMult);
-  
+
   // Combo multiplier: 5+ (2x), 10+ (3x), 20+ (5x)
   let mult = 1;
   const combo = GS._currentCombo || 0;
   if (combo >= 20) mult = 5;
   else if (combo >= 10) mult = 3;
   else if (combo >= 5) mult = 2;
-  
+
   return p * mult;
 }
 // Pro deduction — called directly with -1
@@ -2420,28 +2573,28 @@ let _ioModalFromButton = false;
 
 function openIOModal(fromButton = false) {
   _ioModalFromButton = fromButton;
-  
+
   const outputStr = GS.expectedOutput;
   if (!outputStr && !fromButton) {
     // If no output to show and auto-triggered, just go to gameover screen
     goTo('screen-gameover');
     return;
   }
-  
+
   const modal = document.getElementById('execTerminalModal');
   if (modal) modal.classList.add('open');
-  try { playUI('open'); } catch (e) {}
-  
+  try { playUI('open'); } catch (e) { }
+
   const inputPane = document.getElementById('ioInputPane');
   const outputPane = document.getElementById('terminalOutputText');
-  const noteEl  = document.getElementById('execTerminalNote');
-  
+  const noteEl = document.getElementById('execTerminalNote');
+
   if (!inputPane || !outputPane) return;
-  
+
   inputPane.innerHTML = '';
   outputPane.innerHTML = '';
   if (noteEl) noteEl.textContent = '● Analysing code...';
-  
+
   // Build INPUT pane
   if (GS.words && GS.words.length > 0) {
     GS.words.forEach((w, idx) => {
@@ -2450,33 +2603,33 @@ function openIOModal(fromButton = false) {
       lineDiv.className = 'io-code-line';
       lineDiv.dataset.lineid = idx;
       lineDiv.textContent = lineText;
-      
+
       lineDiv.addEventListener('mouseenter', () => highlightIOLine(idx, true));
       lineDiv.addEventListener('mouseleave', () => highlightIOLine(idx, false));
-      
+
       inputPane.appendChild(lineDiv);
     });
   }
-  
+
   if (!outputStr) {
     if (noteEl) noteEl.textContent = '✓ Execution complete (no output)';
     return;
   }
-  
+
   const rawText = outputStr.replace(/\\n/g, '\n');
   const outLines = rawText.split('\n');
-  
+
   outLines.forEach((t, idx) => {
     const outDiv = document.createElement('div');
     outDiv.className = 'io-output-line';
     outDiv.dataset.lineid = idx;
-    
+
     outDiv.addEventListener('mouseenter', () => highlightIOLine(idx, true));
     outDiv.addEventListener('mouseleave', () => highlightIOLine(idx, false));
-    
+
     outputPane.appendChild(outDiv);
   });
-  
+
   // Animate typing for output lines
   simulateExecTypewriter(outLines, outputPane, noteEl);
 }
@@ -2494,10 +2647,10 @@ function simulateExecTypewriter(lines, pane, noteEl) {
     const charsArr = lineText.split('');
     chars.push({ lIdx, chars: charsArr, target: pane.children[lIdx] });
   });
-  
+
   let currentWordIdx = 0;
   let currentCharIdx = 0;
-  
+
   function typeNext() {
     if (currentWordIdx >= chars.length) {
       if (noteEl) noteEl.textContent = '✓ Execution complete';
@@ -2510,20 +2663,20 @@ function simulateExecTypewriter(lines, pane, noteEl) {
       setTimeout(typeNext, 28);
       return;
     }
-    
+
     currentLine.target.textContent += currentLine.chars[currentCharIdx++];
     pane.scrollTop = pane.scrollHeight;
     setTimeout(typeNext, 28);
   }
-  
+
   setTimeout(typeNext, 320);
 }
 
 function closeIOModal() {
   const modal = document.getElementById('execTerminalModal');
   if (modal) modal.classList.remove('open');
-  try { playUI('click'); } catch (e) {}
-  
+  try { playUI('click'); } catch (e) { }
+
   // If we came from the game loop automatically, proceed to victory screen
   if (!_ioModalFromButton && !_gameOver || _isLevelClear && !_ioModalFromButton) {
     setTimeout(() => goTo('screen-gameover'), 200);
@@ -2565,7 +2718,7 @@ function updateMyLBPos() {
   const el = document.getElementById('lbMyRankVal');
   if (!el) return;
   if (!GS.username) { el.textContent = 'NOT LOGGED IN'; return; }
-  
+
   // Use existing GS.rank data if available, or just fetch it
   if (GS.rank && GS.rank.name) {
     el.innerHTML = `<span style="color:${GS.rank.color}">${GS.rank.icon} ${GS.rank.name.toUpperCase()}</span>`;
@@ -2595,16 +2748,16 @@ async function switchLBTab(tab) {
 
 async function setLBFilter(key, val) {
   lbFilters[key] = val;
-  
+
   // UI update for filter buttons
   if (key === 'mode') {
-    document.querySelectorAll('#lbFilterMode .lb-filter-btn').forEach(b => 
+    document.querySelectorAll('#lbFilterMode .lb-filter-btn').forEach(b =>
       b.classList.toggle('active', b.textContent.toLowerCase() === val));
   } else if (key === 'diff') {
-    document.querySelectorAll('#lbFilterDiff .lb-filter-btn').forEach(b => 
+    document.querySelectorAll('#lbFilterDiff .lb-filter-btn').forEach(b =>
       b.classList.toggle('active', b.textContent.toLowerCase() === val));
   }
-  
+
   fetchLBSpecific();
 }
 
@@ -2612,7 +2765,7 @@ async function fetchLBSpecific() {
   const { mode, diff, lang } = lbFilters;
   const grid = document.getElementById('lbGridSpecific');
   if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;opacity:0.5">FILTERING DATA...</div>';
-  
+
   const data = await apiFetch(`/leaderboard?mode=${mode}&difficulty=${diff}&lang=${lang}`);
   if (data && data.leaderboard) renderLeaderboard(data.leaderboard, 'lbGridSpecific');
   else renderLeaderboard([], 'lbGridSpecific');
@@ -2638,15 +2791,15 @@ function renderLeaderboard(rows, containerId) {
     card.style.cssText = `border-color:${gr.color}33;`;
     card.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.5);letter-spacing:2px;">#${i+1} ${player.points !== undefined ? '· ' + player.points + ' PTS' : ''}</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.5);letter-spacing:2px;">#${i + 1} ${player.points !== undefined ? '· ' + player.points + ' PTS' : ''}</span>
         <span style="font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:white;letter-spacing:2px;">${player.username}</span>
       </div>
       <div style="font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:${gr.color};letter-spacing:3px;margin-bottom:10px;text-shadow:0 0 12px ${gr.color}88;">${gr.icon} ${gr.name.toUpperCase()}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${['python','java','c'].map(lang => {
-          const b = lb[lang] || {icon:'⬡', name:'Recruit', color:'#4a6080'};
-          return `<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:${b.color};padding:3px 7px;border:1px solid ${b.color}44;letter-spacing:1px;">${langNames[lang]}: ${b.icon} ${b.name}</div>`;
-        }).join('')}
+        ${['python', 'java', 'c'].map(lang => {
+      const b = lb[lang] || { icon: '⬡', name: 'Recruit', color: '#4a6080' };
+      return `<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:${b.color};padding:3px 7px;border:1px solid ${b.color}44;letter-spacing:1px;">${langNames[lang]}: ${b.icon} ${b.name}</div>`;
+    }).join('')}
       </div>`;
     grid.appendChild(card);
   });
@@ -2694,38 +2847,38 @@ window.apiAddPoints = apiAddPoints;
 
 // Load settings from localStorage
 document.addEventListener('DOMContentLoaded', () => {
-    const vol = document.getElementById('set-master-vol');
-    const err = document.getElementById('set-error-flash');
-    const pts = document.getElementById('set-score-popups');
-    
-    if (vol) {
-        if (localStorage.getItem('set-master-vol')) vol.value = localStorage.getItem('set-master-vol');
-        vol.addEventListener('input', (e) => {
-            localStorage.setItem('set-master-vol', e.target.value);
-            masterVolume = (e.target.value) / 100;
-        });
-        if (vol.nextElementSibling) vol.nextElementSibling.textContent = vol.value;
-        masterVolume = vol.value / 100;
-    }
-    
-    if (err) {
-        if (localStorage.getItem('set-error-flash') !== null) err.checked = localStorage.getItem('set-error-flash') === 'true';
-        err.addEventListener('change', (e) => localStorage.setItem('set-error-flash', e.target.checked));
-    }
-    
-    if (pts) {
-        if (localStorage.getItem('set-score-popups') !== null) pts.checked = localStorage.getItem('set-score-popups') === 'true';
-        pts.addEventListener('change', (e) => localStorage.setItem('set-score-popups', e.target.checked));
-    }
+  const vol = document.getElementById('set-master-vol');
+  const err = document.getElementById('set-error-flash');
+  const pts = document.getElementById('set-score-popups');
 
-    const uiSounds = document.getElementById('set-ui-sounds');
-    if (uiSounds) {
-        if (localStorage.getItem('set-ui-sounds') !== null) {
-            uiSounds.checked = localStorage.getItem('set-ui-sounds') === 'true';
-        }
-        uiSounds.addEventListener('change', (e) => {
-            localStorage.setItem('set-ui-sounds', e.target.checked);
-        });
+  if (vol) {
+    if (localStorage.getItem('set-master-vol')) vol.value = localStorage.getItem('set-master-vol');
+    vol.addEventListener('input', (e) => {
+      localStorage.setItem('set-master-vol', e.target.value);
+      masterVolume = (e.target.value) / 100;
+    });
+    if (vol.nextElementSibling) vol.nextElementSibling.textContent = vol.value;
+    masterVolume = vol.value / 100;
+  }
+
+  if (err) {
+    if (localStorage.getItem('set-error-flash') !== null) err.checked = localStorage.getItem('set-error-flash') === 'true';
+    err.addEventListener('change', (e) => localStorage.setItem('set-error-flash', e.target.checked));
+  }
+
+  if (pts) {
+    if (localStorage.getItem('set-score-popups') !== null) pts.checked = localStorage.getItem('set-score-popups') === 'true';
+    pts.addEventListener('change', (e) => localStorage.setItem('set-score-popups', e.target.checked));
+  }
+
+  const uiSounds = document.getElementById('set-ui-sounds');
+  if (uiSounds) {
+    if (localStorage.getItem('set-ui-sounds') !== null) {
+      uiSounds.checked = localStorage.getItem('set-ui-sounds') === 'true';
     }
+    uiSounds.addEventListener('change', (e) => {
+      localStorage.setItem('set-ui-sounds', e.target.checked);
+    });
+  }
 });
 
