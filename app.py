@@ -40,16 +40,14 @@ def options():
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "SystemAdmin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "CyberOps2026!")
 
-db_config = {
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', '1234'),
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'database': os.environ.get('DB_NAME', 'codedefender')
-}
-
-
 def get_db():
-    return mysql.connector.connect(**db_config)
+    return mysql.connector.connect(
+        host=os.environ.get("DB_HOST"),
+        user=os.environ.get("DB_USER"),
+        password=os.environ.get("DB_PASSWORD"),
+        database=os.environ.get("DB_NAME"),
+        port=int(os.environ.get("DB_PORT", 3306))
+    )
 
 def get_db_lang(lang, mode, difficulty):
     # Compresses strings into 6 characters to stay within safety limits
@@ -1752,5 +1750,6 @@ def sandbox_execute():
     except Exception as e:
         return jsonify({"stdout": "", "stderr": str(e), "compileErr": ""})
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
